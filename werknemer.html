@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mijn Planning</title>
+<style>
+:root{color-scheme:light;}*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;min-height:100vh;color:#1e293b;}
+.btn{border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;padding:8px 14px;transition:opacity .15s;}
+.btn:hover{opacity:.85;}
+.btn-p{background:#2563eb;color:#fff;}
+.btn-s{background:#f1f5f9;color:#374151;border:1px solid #e2e8f0;}
+.btn-sm{padding:5px 10px;font-size:12px;}
+.inp{border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;transition:border-color .15s;font-family:inherit;background:#fff;width:100%;}
+.inp:focus{border-color:#3b82f6;box-shadow:0 0 0 3px #bfdbfe55;}
+#toast{position:fixed;bottom:20px;right:20px;background:#1e293b;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(8px);transition:opacity .3s,transform .3s;pointer-events:none;}
+#toast.show{opacity:1;transform:translateY(0);}
+.center-box{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.card{background:#fff;border-radius:16px;padding:24px;max-width:420px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.1);}
+.hdr{background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(0,0,0,.2);}
+.day-card{background:#fff;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.07);}
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:999;display:flex;align-items:flex-end;justify-content:center;}
+.sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:88vh;overflow-y:auto;padding:20px 20px 32px;}
+.month-nav{background:#fff;padding:11px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<script>
+const COLORS=['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#6366F1','#84CC16','#EC4899','#14B8A6','#A855F7','#0EA5E9','#22C55E','#FB923C'];
+const MONTHS=['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
+const DNMS=['Zo','Ma','Di','Wo','Do','Vr','Za'];
+const now=new Date();
+const TSTR=fd(now.getFullYear(),now.getMonth(),now.getDate());
+const LS_SYNC='cap_plan_sync_v2';
+const LS_DATA='cap_plan_data_v2';
+const LS_AUTH='cap_plan_auth_v1';
+
+let SYNC={dbUrl:'',webApiKey:'',enabled:false};
+let _authToken=null,_tokenExpiry=0;
+let DATA={persons:[],wns:[],asgn:{}};
+let AUTH={pid:null};
+let ST={screen:'loading',yr:now.getFullYear(),mo:now.getMonth(),detail:null,loginPid:null,loginErr:''};
+
+function fd(y,m,d){return`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+function dim(y,m){return new Date(y,m+1,0).getDate();}
+function gwn(id){return DATA.wns.find(w=>w.id===id);}
+function gp(id){return DATA.persons.find(p=>p.id===id);}
+function pWorks(p,y,m,d){const dow=new Date(y,m,d).getDay();return(p.wd||[1,2,3,4,5]).includes(dow);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(msg,dur=2500){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+
+function saveAuth(){try{localStorage.setItem(LS_AUTH,JSON.stringify(AUTH));}catch(e){}}
+function loadAuth(){try{const r=localStorage.getItem(LS_AUTH);if(r)AUTH={...AUTH,...JSON.parse(r)};}catch(e){}}
+function saveSyncConfig(){try{localStorage.setItem(LS_SYNC,JSON.stringify({dbUrl:SYNC.dbUrl,webApiKey:SYNC.webApiKey,enabled:SYNC.enabled}));}catch(e){}}
+function loadSyncConfig(){try{const r=localStorage.getItem(LS_SYNC);if(r){const p=JSON.parse(r);if(p.dbUrl)SYNC={dbUrl:p.dbUrl,webApiKey:p.webApiKey||'',enabled:!!p.enabled};}}catch(e){}}
+function loadLocal(){try{const r=localStorage.getItem(LS_DATA);if(r){applyData(JSON.parse(r));return true;}return false;}catch(e){return false;}}
+function applyData(d){
+  if(d.persons)DATA.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||''}));
+  if(d.wns)DATA.wns=d.wns.map(w=>({...w,desc:w.desc||'',imgs:w.imgs||[],pdfUrls:w.pdfUrls||[]}));
+  if(d.asgn)DATA.asgn=d.asgn;
+}
+function fbBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning.json';}
+
+async function getAuthToken(){
+  if(_authToken&&Date.now()<_tokenExpiry)return _authToken;
+  if(!SYNC.webApiKey)return null;
+  try{
+    const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})});
+    if(!r.ok)return null;
+    const d=await r.json();
+    _authToken=d.idToken;
+    _tokenExpiry=Date.now()+(parseInt(d.expiresIn||3600)-120)*1000;
+    return _authToken;
+  }catch(e){return null;}
+}
+
+async function pullFromFirebase(){
+  if(!SYNC.enabled||!SYNC.dbUrl)return false;
+  try{
+    const t=await getAuthToken();
+    const url=fbBase()+(t?'?auth='+t:'');
+    const r=await fetch(url);
+    if(!r.ok)return false;
+    const d=await r.json();
+    if(d&&d.persons){applyData(d);try{localStorage.setItem(LS_DATA,JSON.stringify(d));}catch(e){}return true;}
+    return false;
+  }catch(e){return false;}
+}
+
+let esConn=null;
+async function startRealtimeSync(){
+  if(esConn){esConn.close();esConn=null;}
+  if(!SYNC.enabled||!SYNC.dbUrl)return;
+  const token=await getAuthToken();
+  const url=fbBase()+(token?'?auth='+token:'');
+  let firstEvent=true;
+  try{
+    esConn=new EventSource(url);
+    esConn.addEventListener('put',e=>{
+      try{
+        const msg=JSON.parse(e.data);
+        if(firstEvent){firstEvent=false;return;}
+        if(msg.data&&msg.data.persons){
+          applyData(msg.data);
+          try{localStorage.setItem(LS_DATA,JSON.stringify(msg.data));}catch(er){}
+          render();showToast('🔄 Planning bijgewerkt');
+        }
+      }catch(err){}
+    });
+    const refreshIn=Math.max(30000,_tokenExpiry-Date.now()-60000);
+    setTimeout(()=>{if(SYNC.enabled)startRealtimeSync();},refreshIn);
+  }catch(e){}
+}
+
+function render(){document.getElementById('app').innerHTML=buildApp();}
+
+function buildApp(){
+  if(ST.screen==='loading')return`<div class="center-box"><div style="text-align:center;"><div style="font-size:44px;margin-bottom:14px;">⏳</div><div style="color:#64748b;font-size:14px;">Even laden...</div></div></div>`;
+  if(ST.screen==='setup')return buildSetup();
+  if(ST.screen==='login')return buildLogin();
+  return buildPlanning();
+}
+
+function buildSetup(){
+  return`<div class="center-box"><div class="card">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:52px;margin-bottom:10px;">📋</div>
+      <h1 style="font-size:22px;font-weight:700;">Mijn Planning</h1>
+      <p style="font-size:13px;color:#64748b;margin-top:8px;line-height:1.5;">Voer de synchronisatiegegevens in.<br>Je krijgt deze van je planner.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Database URL</label><input id="s-url" class="inp" placeholder="https://project-default-rtdb.firebaseio.com"></div>
+      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Web API-sleutel</label><input id="s-key" class="inp" placeholder="AIzaSy..." type="password"></div>
+      <button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;" onclick="saveSetup()">Verbinden →</button>
+    </div>
+  </div></div>`;
+}
+
+function buildLogin(){
+  return`<div class="center-box"><div class="card">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:52px;margin-bottom:10px;">👷</div>
+      <h1 style="font-size:22px;font-weight:700;">Inloggen</h1>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Wie ben jij?</label>
+        <select id="l-pid" class="inp" onchange="ST.loginPid=parseInt(this.value)||null">
+          <option value="">— Kies je naam —</option>
+          ${DATA.persons.map(p=>`<option value="${p.id}" ${ST.loginPid===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Wachtwoord</label>
+        <input id="l-pwd" class="inp" type="password" placeholder="Wachtwoord" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      ${ST.loginErr?`<div style="background:#fee2e2;color:#dc2626;border-radius:8px;padding:10px 12px;font-size:13px;">${esc(ST.loginErr)}</div>`:''}
+      <button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;" onclick="doLogin()">Inloggen</button>
+      <button class="btn btn-s btn-sm" style="width:100%;" onclick="refreshAndShow()">🔄 Data vernieuwen</button>
+      <button class="btn btn-s btn-sm" style="width:100%;color:#94a3b8;font-size:11px;" onclick="resetSetup()">⚙️ Verbinding wijzigen</button>
+    </div>
+  </div></div>`;
+}
+
+function buildPlanning(){
+  const p=gp(AUTH.pid);
+  if(!p){logout();return buildLogin();}
+  const days=dim(ST.yr,ST.mo);
+  const arr=Array.from({length:days},(_,i)=>i+1);
+  const isThisMonth=ST.yr===now.getFullYear()&&ST.mo===now.getMonth();
+  const todayWid=isThisMonth?DATA.asgn[`${p.id}_${TSTR}`]:undefined;
+  const todayWn=todayWid?gwn(todayWid):null;
+
+  return`<div>
+    <div class="hdr">
+      <div>
+        <div style="font-size:17px;font-weight:700;">📋 Mijn Planning</div>
+        <div style="font-size:12px;opacity:.8;margin-top:2px;">${esc(p.name)}</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;" onclick="refreshAndShow()" title="Vernieuwen">🔄</button>
+        <button style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;" onclick="logout()">Uitloggen</button>
+      </div>
+    </div>
+
+    ${isThisMonth?`<div style="background:linear-gradient(to right,#eff6ff,#f0fdf4);padding:14px 16px;border-bottom:1px solid #e2e8f0;">
+      <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:8px;">VANDAAG — ${new Date().toLocaleDateString('nl',{weekday:'long',day:'numeric',month:'long'}).toUpperCase()}</div>
+      ${todayWn?`<div class="day-card" style="border-left:4px solid ${todayWn.color};cursor:pointer;" onclick="openDetail(${todayWn.id},'${TSTR}')">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:15px;color:${todayWn.color};">${esc(todayWn.label)}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:3px;">${todayWn.desc?esc(todayWn.desc.substring(0,70))+(todayWn.desc.length>70?'...':''):'Tik voor details →'}</div>
+        </div>
+        <div style="font-size:20px;color:#94a3b8;">›</div>
+      </div>`:`<div style="font-size:13px;color:#94a3b8;padding:2px 0;">${pWorks(p,now.getFullYear(),now.getMonth(),now.getDate())?'Geen werkorder toegewezen voor vandaag':'Vandaag is een vrije dag'}</div>`}
+    </div>`:''}
+
+    <div class="month-nav">
+      <button class="btn btn-s btn-sm" onclick="prevMo()">◀</button>
+      <span style="font-size:15px;font-weight:700;flex:1;text-align:center;">${MONTHS[ST.mo]} ${ST.yr}</span>
+      <button class="btn btn-s btn-sm" onclick="nextMo()">▶</button>
+      <button class="btn btn-s btn-sm" onclick="goToday()">Nu</button>
+    </div>
+
+    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px;padding-bottom:24px;">
+      ${arr.map(d=>{
+        const ds=fd(ST.yr,ST.mo,d);
+        const works=pWorks(p,ST.yr,ST.mo,d);
+        const wid=works?DATA.asgn[`${p.id}_${ds}`]:undefined;
+        const wn=wid?gwn(wid):null;
+        const isToday=ds===TSTR;
+        const dow=new Date(ST.yr,ST.mo,d).getDay();
+        const isWknd=dow===0||dow===6;
+        return`<div class="day-card" style="border-left:4px solid ${isToday?'#3b82f6':wn?wn.color:works?'#e2e8f0':'#f1f5f9'};opacity:${works?1:.45};${wn?'cursor:pointer;':''}" ${wn?`onclick="openDetail(${wn.id},'${ds}')"`:''}">
+          <div style="min-width:44px;text-align:center;">
+            <div style="font-size:10px;font-weight:700;color:${isToday?'#2563eb':isWknd?'#94a3b8':'#64748b'};">${DNMS[dow]}</div>
+            <div style="font-size:22px;font-weight:700;color:${isToday?'#2563eb':'#1e293b'};line-height:1.15;">${d}</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            ${wn
+              ?`<div style="font-weight:600;font-size:13px;color:${wn.color};">${esc(wn.label)}</div><div style="font-size:11px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${wn.desc?esc(wn.desc.substring(0,50))+(wn.desc.length>50?'...':''):'Tik voor details'}</div>`
+              :works
+                ?`<div style="font-size:12px;color:#94a3b8;">Geen toewijzing</div>`
+                :`<div style="font-size:12px;color:#cbd5e1;">Vrij</div>`
+            }
+          </div>
+          ${wn?`<div style="font-size:20px;color:#cbd5e1;flex-shrink:0;">›</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    ${ST.detail?buildDetailModal():''}
+  </div>`;
+}
+
+function buildDetailModal(){
+  const {wnId,ds}=ST.detail;
+  const wn=gwn(wnId);
+  if(!wn)return'';
+  const hasContent=wn.desc||(wn.imgs&&wn.imgs.length)||(wn.pdfUrls&&wn.pdfUrls.length);
+  return`<div class="ov" onclick="ST.detail=null;render()">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${wn.color};flex-shrink:0;"></span>
+        <h2 style="font-size:19px;font-weight:700;flex:1;">${esc(wn.label)}</h2>
+        <button onclick="ST.detail=null;render()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1;padding:0 2px;">✕</button>
+      </div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:20px;">📅 ${ds}</div>
+
+      ${wn.desc?`<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:8px;">OMSCHRIJVING</div>
+        <div style="font-size:14px;color:#1e293b;line-height:1.65;white-space:pre-wrap;">${esc(wn.desc)}</div>
+      </div>`:''}
+
+      ${wn.imgs&&wn.imgs.length?`<div style="margin-bottom:16px;">
+        <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:10px;">TEKENINGEN / AFBEELDINGEN</div>
+        ${wn.imgs.map(img=>`<div style="margin-bottom:12px;">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:5px;">📎 ${esc(img.name)}</div>
+          <img src="${img.data}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;" alt="${esc(img.name)}">
+        </div>`).join('')}
+      </div>`:''}
+
+      ${wn.pdfUrls&&wn.pdfUrls.length?`<div style="margin-bottom:16px;">
+        <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:10px;">DOCUMENTEN</div>
+        ${wn.pdfUrls.filter(pdf=>pdf.url).map(pdf=>`<a href="${esc(pdf.url)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:13px 14px;text-decoration:none;color:#1d4ed8;margin-bottom:6px;">
+          <span style="font-size:22px;">📄</span>
+          <span style="font-size:13px;font-weight:500;">${esc(pdf.name||pdf.url)}</span>
+        </a>`).join('')}
+      </div>`:''}
+
+      ${!hasContent?`<div style="text-align:center;padding:28px;color:#94a3b8;font-size:14px;">📭 Geen aanvullende informatie beschikbaar</div>`:''}
+
+      <button style="width:100%;background:#f1f5f9;border:none;border-radius:10px;padding:14px;font-size:14px;cursor:pointer;font-weight:500;color:#374151;margin-top:4px;" onclick="ST.detail=null;render()">Sluiten</button>
+    </div>
+  </div>`;
+}
+
+function saveSetup(){
+  const dbUrl=document.getElementById('s-url')?.value?.trim();
+  const webApiKey=document.getElementById('s-key')?.value?.trim();
+  if(!dbUrl||!webApiKey){showToast('⚠️ Vul beide velden in');return;}
+  SYNC={dbUrl,webApiKey,enabled:true};_authToken=null;saveSyncConfig();
+  ST.screen='loading';render();
+  pullFromFirebase().then(ok=>{
+    if(!ok){showToast('❌ Verbinding mislukt. Controleer de URL en Firebase-regels.');SYNC={dbUrl:'',enabled:false};saveSyncConfig();ST.screen='setup';render();}
+    else{showToast('✅ Verbonden!');startRealtimeSync();ST.screen='login';render();}
+  });
+}
+function doLogin(){
+  const pid=parseInt(document.getElementById('l-pid')?.value)||null;
+  const pwd=document.getElementById('l-pwd')?.value||'';
+  if(!pid){ST.loginErr='Kies je naam.';render();return;}
+  const p=gp(pid);
+  if(!p){ST.loginErr='Persoon niet gevonden.';render();return;}
+  if((p.pwd||'')&&p.pwd!==pwd){ST.loginErr='Onjuist wachtwoord.';render();return;}
+  AUTH={pid};saveAuth();ST.loginErr='';ST.loginPid=null;ST.screen='planning';render();showToast(`👋 Welkom, ${p.name}!`);
+}
+function logout(){AUTH={pid:null};saveAuth();ST.screen='login';ST.loginErr='';render();}
+function resetSetup(){if(!confirm('Verbinding opnieuw instellen?'))return;if(esConn){esConn.close();esConn=null;}SYNC={dbUrl:'',webApiKey:'',enabled:false};_authToken=null;saveSyncConfig();ST.screen='setup';render();}
+function prevMo(){ST.mo===0?(ST.mo=11,ST.yr--):ST.mo--;render();}
+function nextMo(){ST.mo===11?(ST.mo=0,ST.yr++):ST.mo++;render();}
+function goToday(){ST.yr=now.getFullYear();ST.mo=now.getMonth();render();}
+function openDetail(wnId,ds){ST.detail={wnId,ds};render();}
+async function refreshAndShow(){
+  showToast('🔄 Vernieuwen...',3000);
+  const ok=await pullFromFirebase();
+  showToast(ok?'✅ Bijgewerkt':'⚠️ Geen verbinding — lokale data');
+  render();
+}
+
+loadSyncConfig();
+loadLocal();
+loadAuth();
+if(SYNC.enabled){
+  ST.screen='loading';render();
+  pullFromFirebase().then(ok=>{
+    if(!ok)showToast('⚠️ Offline — lokale data wordt getoond');
+    if(AUTH.pid&&gp(AUTH.pid)){ST.screen='planning';}
+    else{AUTH={pid:null};saveAuth();ST.screen='login';}
+    startRealtimeSync();
+    render();
+  });
+}else{
+  ST.screen='setup';render();
+}
+</script>
+</body>
+</html>
