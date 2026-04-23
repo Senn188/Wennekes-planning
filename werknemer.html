@@ -254,10 +254,10 @@ function buildDetailModal(){
 
       ${wn.imgs&&wn.imgs.length?`<div style="margin-bottom:16px;">
         <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:10px;">TEKENINGEN / AFBEELDINGEN</div>
-        ${wn.imgs.map(img=>`<div style="margin-bottom:12px;">
+        ${wn.imgs.map(img=>{const src=img.url||img.data||'';return`<div style="margin-bottom:12px;">
           <div style="font-size:11px;color:#94a3b8;margin-bottom:5px;">📎 ${esc(img.name)}</div>
-          <img src="${img.data}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;" alt="${esc(img.name)}">
-        </div>`).join('')}
+          ${src?`<img src="${esc(src)}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;" alt="${esc(img.name)}">`:'<div style="padding:10px;color:#94a3b8;font-size:12px;">Afbeelding niet beschikbaar</div>'}
+        </div>`;}).join('')}
       </div>`:''}
 
       ${wn.pdfUrls&&wn.pdfUrls.length?`<div style="margin-bottom:16px;">
