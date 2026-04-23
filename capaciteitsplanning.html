@@ -162,7 +162,7 @@ let S={
     {id:1,label:'WN-001',needed:80,color:COLORS[0],desc:'',imgs:[],pdfUrls:[]},
     {id:2,label:'WN-002',needed:40,color:COLORS[1],desc:'',imgs:[],pdfUrls:[]},
   ],
-  asgn:{},leave:{},actual:{},modal:null,dataModal:null,wnEditModal:null,rangeModal:null,recurringModal:null,npid:4,nwid:3,viewStart:getViewMonday(now)
+  asgn:{},leave:{},actual:{},auditlog:[],modal:null,dataModal:null,wnEditModal:null,rangeModal:null,recurringModal:null,npid:4,nwid:3,viewStart:getViewMonday(now),instTab:'personen'
 };
 
 let SYNC={dbUrl:'',webApiKey:'',cloudName:'',uploadPreset:'',enabled:false};
@@ -220,13 +220,14 @@ function applyData(d){
   if(d.asgn)S.asgn=d.asgn;
   if(d.leave)S.leave=d.leave; else if(!S.leave)S.leave={};
   if(d.actual)S.actual=d.actual; else if(!S.actual)S.actual={};
+  if(d.auditlog)S.auditlog=d.auditlog; else if(!S.auditlog)S.auditlog=[];
   if(d.wns)S.wns=S.wns.map(w=>({deadline:'',  ...w}));
   if(d.npid)S.npid=d.npid;
   if(d.nwid)S.nwid=d.nwid;
   if(S.persons.length)S.npid=Math.max(S.npid,...S.persons.map(p=>p.id+1));
   if(S.wns.length)S.nwid=Math.max(S.nwid,...S.wns.map(w=>w.id+1));
 }
-function getExportData(){return{persons:S.persons,wns:S.wns,asgn:S.asgn,leave:S.leave||{},actual:S.actual||{},npid:S.npid,nwid:S.nwid,updatedAt:Date.now()};}
+function getExportData(){return{persons:S.persons,wns:S.wns,asgn:S.asgn,leave:S.leave||{},actual:S.actual||{},auditlog:S.auditlog||[],npid:S.npid,nwid:S.nwid,updatedAt:Date.now()};}
 
 function fbBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning.json';}
 
@@ -352,16 +353,16 @@ function buildApp(){
     <div><h1>📅 Capaciteitsplanning</h1><div class="hdr-sub">Personen · Werknummers · Capaciteit</div></div>
     <div class="hdr-right">
       <button class="btn btn-gst btn-sm" onclick="manualRefresh()" title="Laatste versie ophalen uit cloud">🔄 Vernieuwen</button>
-      <div class="sync-badge" id="sync-badge" onclick="setTab('sync')" style="cursor:pointer;" title="Synchronisatie-instellingen">
+      <div class="sync-badge" id="sync-badge" onclick="setTab('instellingen');setInstTab('sync')" style="cursor:pointer;" title="Synchronisatie-instellingen">
         <span class="sync-dot" style="background:${syncDot}"></span>${syncLbl}
       </div>
     </div>
   </div>
   <div class="tabs">
-    ${['planning','capaciteit','uren','instellingen','sync'].map(t=>`<button class="tab ${S.tab===t?'active':''}" onclick="setTab('${t}')">${{planning:'📋 Planning',capaciteit:'📊 Capaciteit',uren:'⏱ Uren',instellingen:'⚙️ Instellingen',sync:'☁️ Synchronisatie'}[t]}</button>`).join('')}
+    ${['planning','capaciteit','uren','instellingen'].map(t=>`<button class="tab ${S.tab===t?'active':''}" onclick="setTab('${t}')">${{planning:'📋 Planning',capaciteit:'📊 Capaciteit',uren:'⏱ Uren',instellingen:'⚙️ Instellingen'}[t]}</button>`).join('')}
   </div>
   <div class="content">
-    ${S.tab==='planning'?bPlanning():S.tab==='capaciteit'?bCap():S.tab==='uren'?bUren():S.tab==='instellingen'?bInst():bSync()}
+    ${S.tab==='planning'?bPlanning():S.tab==='capaciteit'?bCap():S.tab==='uren'?bUren():bInst()}
   </div>
   ${S.modal?bModal():''}
   ${S.dataModal?bDataModal():''}
@@ -493,7 +494,18 @@ function bCap(){
   </div>`;
 }
 
+function setInstTab(t){S.instTab=t;render();}
 function bInst(){
+  const it=S.instTab||'personen';
+  const subTabs=[['personen','👤 Personen & WN\'s'],['sync','☁️ Synchronisatie'],['logboek','📜 Logboek']];
+  return`<div>
+    <div style="display:flex;gap:2px;margin-bottom:18px;background:#f1f5f9;border-radius:10px;padding:4px;width:fit-content;">
+      ${subTabs.map(([k,lbl])=>`<button onclick="setInstTab('${k}')" style="padding:7px 16px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:${it===k?'#fff':'transparent'};color:${it===k?'#1e293b':'#64748b'};box-shadow:${it===k?'0 1px 3px rgba(0,0,0,.1)':'none'};">${lbl}</button>`).join('')}
+    </div>
+    ${it==='personen'?bInstPersonen():it==='sync'?bSync():bLogboek()}
+  </div>`;
+}
+function bInstPersonen(){
   return`<div class="sgrid">
     <div class="card">
       <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">👤 Personen (${S.persons.length}/15)</h2>
@@ -554,7 +566,6 @@ function bInst(){
 function bSync(){
   const configured=SYNC.dbUrl&&SYNC.enabled;
   return`<div style="max-width:640px;">
-    <h2 style="font-size:17px;font-weight:700;margin-bottom:14px;">☁️ Synchronisatie — Firebase</h2>
     <div class="info-box">
       <strong>Eenmalige setup (~5 minuten, gratis):</strong>
       <ol style="margin-top:10px;">
@@ -748,14 +759,20 @@ function nextMo(){nextWeek();}
 function goToday(){S.viewStart=getViewMonday(now);render();}
 function openMod(pid,ds){S.modal={pid,ds};render();}
 function closeMod(){S.modal=null;render();}
-function asgnW(wid){const key=`${S.modal.pid}_${S.modal.ds}`;wid===null?delete S.asgn[key]:S.asgn[key]=wid;S.modal=null;onChange();render();}
-function addP(){const n=document.getElementById('pn')?.value?.trim();const h=parseInt(document.getElementById('ph')?.value)||8;if(!n||S.persons.length>=15)return;S.persons.push({id:S.npid++,name:n,hrs:Math.max(1,Math.min(24,h)),wd:[1,2,3,4,5],pwd:''});onChange();render();}
-function rmP(id){if(!confirm('Persoon verwijderen?'))return;S.persons=S.persons.filter(p=>p.id!==id);for(const k of Object.keys(S.asgn)){if(k.startsWith(`${id}_`))delete S.asgn[k];}onChange();render();}
-function upP(id,f,v){const p=gp(id);if(p){p[f]=v;onChange();}}
+function asgnW(wid){
+  const key=`${S.modal.pid}_${S.modal.ds}`;
+  const before=S.asgn[key];
+  wid===null?delete S.asgn[key]:S.asgn[key]=wid;
+  logAction({type:'asgn',pid:S.modal.pid,ds:S.modal.ds,before,after:wid===null?undefined:wid,wnId:wid,pName:gp(S.modal.pid)?.name,wnLabel:wid?gwn(wid)?.label:null});
+  S.modal=null;onChange();render();
+}
+function addP(){const n=document.getElementById('pn')?.value?.trim();const h=parseInt(document.getElementById('ph')?.value)||8;if(!n||S.persons.length>=15)return;const pid=S.npid++;S.persons.push({id:pid,name:n,hrs:Math.max(1,Math.min(24,h)),wd:[1,2,3,4,5],pwd:''});logAction({type:'person',action:'add',personId:pid,pName:n});onChange();render();}
+function rmP(id){if(!confirm('Persoon verwijderen?'))return;const p=gp(id);if(p)logAction({type:'person',action:'delete',personId:id,pName:p.name,personData:{...p}});S.persons=S.persons.filter(p=>p.id!==id);for(const k of Object.keys(S.asgn)){if(k.startsWith(`${id}_`))delete S.asgn[k];}onChange();render();}
+function upP(id,f,v){const p=gp(id);if(p){const before=p[f];p[f]=v;if(f!=='pwd')logAction({type:'person',action:'update',personId:id,pName:p.name,field:f,before,after:v});onChange();}}
 function toggleWd(pid,dow){const p=gp(pid);if(!p)return;if(!p.wd)p.wd=[1,2,3,4,5];const i=p.wd.indexOf(dow);i===-1?p.wd.push(dow):p.wd.splice(i,1);onChange();render();}
-function addW(){const l=document.getElementById('wl')?.value?.trim();const h=parseInt(document.getElementById('wh')?.value)||40;if(!l)return;S.wns.push({id:S.nwid++,label:l,needed:Math.max(1,h),color:COLORS[S.wns.length%COLORS.length],desc:'',imgs:[],pdfUrls:[],deadline:''});onChange();render();}
-function rmW(id){if(!confirm('Werknummer verwijderen?'))return;S.wns=S.wns.filter(w=>w.id!==id);for(const k of Object.keys(S.asgn)){if(S.asgn[k]===id)delete S.asgn[k];}onChange();render();}
-function upW(id,f,v){const w=gwn(id);if(w){w[f]=v;onChange();}}
+function addW(){const l=document.getElementById('wl')?.value?.trim();const h=parseInt(document.getElementById('wh')?.value)||40;if(!l)return;const wid=S.nwid++;S.wns.push({id:wid,label:l,needed:Math.max(1,h),color:COLORS[S.wns.length%COLORS.length],desc:'',imgs:[],pdfUrls:[],deadline:''});logAction({type:'wn',action:'add',wnId:wid,wnLabel:l});onChange();render();}
+function rmW(id){if(!confirm('Werknummer verwijderen?'))return;const w=gwn(id);if(w)logAction({type:'wn',action:'delete',wnId:id,wnLabel:w.label,wnData:{...w}});S.wns=S.wns.filter(w=>w.id!==id);for(const k of Object.keys(S.asgn)){if(S.asgn[k]===id)delete S.asgn[k];}onChange();render();}
+function upW(id,f,v){const w=gwn(id);if(w){const before=w[f];w[f]=v;if(f!=='desc')logAction({type:'wn',action:'update',wnId:id,wnLabel:w.label,field:f,before,after:v});onChange();}}
 function rstAll(){if(!confirm('Alle planningsdata wissen?'))return;S.asgn={};onChange();pushToCloud(false);render();}
 
 async function connectSync(){
@@ -915,14 +932,22 @@ function asgnWRange(wid){
   const rm=S.rangeModal;if(!rm)return;
   const p=gp(rm.pid);if(!p)return;
   const d1=parseDs(rm.fromDs),d2=parseDs(rm.toDs);
+  const changes=[];
   let cur=new Date(d1);
   while(cur<=d2){
     const ds=fdDate(cur);
     if(pWorks(p,cur.getFullYear(),cur.getMonth(),cur.getDate())){
       const key=`${rm.pid}_${ds}`;
+      const before=S.asgn[key];
       if(wid===null){delete S.asgn[key];}else{S.asgn[key]=wid;}
+      changes.push({key,before,after:wid===null?undefined:wid});
     }
     cur=addDays(cur,1);
+  }
+  if(changes.length){
+    const wn=wid?gwn(wid):null;
+    logAction({type:'asgn',action:'batch',pid:rm.pid,pName:p.name,wnId:wid,wnLabel:wn?.label,changes,
+      desc:`${p.name}: ${rm.fromDs} t/m ${rm.toDs} → ${wid?wn?.label:'verwijderd'} (${changes.length} dagen)`});
   }
   S.rangeModal=null;onChange();render();
 }
@@ -931,14 +956,17 @@ function asgnRangeLeave(type){
   const p=gp(rm.pid);if(!p)return;
   if(!S.leave)S.leave={};
   const d1=parseDs(rm.fromDs),d2=parseDs(rm.toDs);
-  let cur=new Date(d1);
+  const changes=[];let cur=new Date(d1);
   while(cur<=d2){
     const ds=fdDate(cur);
     if(pWorks(p,cur.getFullYear(),cur.getMonth(),cur.getDate())){
-      S.leave[`${rm.pid}_${ds}`]=type;
+      const key=`${rm.pid}_${ds}`;const before=S.leave[key];
+      S.leave[key]=type;changes.push({key,before,after:type});
     }
     cur=addDays(cur,1);
   }
+  if(changes.length)logAction({type:'leave',action:'batch',pid:rm.pid,pName:p.name,changes,
+    desc:`${type==='V'?'🌴 Verlof':'🤒 Ziek'}: ${p.name} ${rm.fromDs} t/m ${rm.toDs} (${changes.length} dagen)`});
   S.rangeModal=null;onChange();render();
 }
 function clearRangeLeave(){
@@ -946,24 +974,31 @@ function clearRangeLeave(){
   const p=gp(rm.pid);if(!p)return;
   if(!S.leave)S.leave={};
   const d1=parseDs(rm.fromDs),d2=parseDs(rm.toDs);
-  let cur=new Date(d1);
+  const changes=[];let cur=new Date(d1);
   while(cur<=d2){
     const ds=fdDate(cur);
-    delete S.leave[`${rm.pid}_${ds}`];
+    const key=`${rm.pid}_${ds}`;const before=S.leave[key];
+    delete S.leave[key];if(before!==undefined)changes.push({key,before,after:undefined});
     cur=addDays(cur,1);
   }
+  if(changes.length)logAction({type:'leave',action:'batch',pid:rm.pid,pName:p.name,changes,
+    desc:`Verlof verwijderd: ${p.name} ${rm.fromDs} t/m ${rm.toDs}`});
   S.rangeModal=null;onChange();render();
 }
 
 // ── Single-day leave ─────────────────────────────────────────
 function setLeave(pid,ds,type){
   if(!S.leave)S.leave={};
+  const before=S.leave[`${pid}_${ds}`];
   S.leave[`${pid}_${ds}`]=type;
+  logAction({type:'leave',pid,ds,before,after:type,pName:gp(pid)?.name});
   S.modal=null;onChange();render();
 }
 function clearLeave(pid,ds){
   if(!S.leave)S.leave={};
+  const before=S.leave[`${pid}_${ds}`];
   delete S.leave[`${pid}_${ds}`];
+  logAction({type:'leave',pid,ds,before,after:undefined,pName:gp(pid)?.name});
   S.modal=null;onChange();render();
 }
 
@@ -1158,11 +1193,129 @@ function bUren(){
 function setActualHrs(pid,ds,v){
   if(!S.actual)S.actual={};
   const key=`${pid}_${ds}`;
+  const before=S.actual[key];
   const num=parseFloat(v);
   if(v===''||v===null||isNaN(num)){delete S.actual[key];}
   else{S.actual[key]=Math.max(0,num);}
+  logAction({type:'actual',pid,ds,before,after:S.actual[key],pName:gp(pid)?.name});
   onChange();
-  // Update summary without full re-render for smooth typing
+}
+
+// ── Audit trail ──────────────────────────────────────────────
+const LOG_DAYS=30;
+function logAction(entry){
+  if(!S.auditlog)S.auditlog=[];
+  S.auditlog.unshift({id:`${Date.now()}_${Math.random().toString(36).slice(2,6)}`,ts:Date.now(),...entry});
+  const cutoff=Date.now()-LOG_DAYS*86400000;
+  S.auditlog=S.auditlog.filter(e=>e.ts>=cutoff).slice(0,500);
+}
+function logDesc(e){
+  const pn=e.pName||(e.pid?gp(e.pid)?.name:null)||'?';
+  const wl=e.wnLabel||(e.wnId?gwn(e.wnId)?.label:null)||'?';
+  switch(e.type){
+    case 'asgn':
+      if(e.action==='batch')return`📋 ${e.desc}`;
+      if(e.after===undefined||e.after===null)return`❌ Toewijzing verwijderd: ${pn} op ${e.ds}`;
+      return`✏️ Toegewezen: ${pn} → ${wl} op ${e.ds}`;
+    case 'leave':
+      if(e.action==='batch')return`📋 ${e.desc}`;
+      if(e.after===undefined||e.after===null)return`🔓 Verlof/ziek verwijderd: ${pn} op ${e.ds}`;
+      return`${e.after==='V'?'🌴 Verlof':'🤒 Ziek'}: ${pn} op ${e.ds}`;
+    case 'actual':
+      if(e.after===undefined||e.after===null)return`🗑 Uren verwijderd: ${pn} op ${e.ds}`;
+      return`⏱ Uren: ${pn} op ${e.ds} → ${e.after}u`;
+    case 'person':
+      if(e.action==='add')return`👤 Persoon toegevoegd: ${e.pName}`;
+      if(e.action==='delete')return`🗑 Persoon verwijderd: ${e.pName}`;
+      return`✏️ Persoon gewijzigd: ${e.pName} — ${e.field}`;
+    case 'wn':
+      if(e.action==='add')return`🔢 WN toegevoegd: ${e.wnLabel}`;
+      if(e.action==='delete')return`🗑 WN verwijderd: ${e.wnLabel}`;
+      return`✏️ WN gewijzigd: ${e.wnLabel} — ${e.field}`;
+    case 'undo':return e.desc||'↩ Teruggedraaid';
+    default:return e.desc||'?';
+  }
+}
+function undoLog(id){
+  const entry=(S.auditlog||[]).find(e=>e.id===id);
+  if(!entry){showToast('⚠️ Log-entry niet gevonden');return;}
+  try{
+    if(entry.type==='asgn'){
+      const changes=entry.action==='batch'?entry.changes:[{key:`${entry.pid}_${entry.ds}`,before:entry.before}];
+      for(const ch of changes){if(ch.before===undefined)delete S.asgn[ch.key];else S.asgn[ch.key]=ch.before;}
+    }else if(entry.type==='leave'){
+      if(!S.leave)S.leave={};
+      const changes=entry.action==='batch'?entry.changes:[{key:`${entry.pid}_${entry.ds}`,before:entry.before}];
+      for(const ch of changes){if(ch.before===undefined)delete S.leave[ch.key];else S.leave[ch.key]=ch.before;}
+    }else if(entry.type==='actual'){
+      if(!S.actual)S.actual={};
+      const key=`${entry.pid}_${entry.ds}`;
+      if(entry.before===undefined)delete S.actual[key];else S.actual[key]=entry.before;
+    }else if(entry.type==='person'){
+      if(entry.action==='add'){
+        S.persons=S.persons.filter(p=>p.id!==entry.personId);
+        for(const k of Object.keys(S.asgn))if(k.startsWith(`${entry.personId}_`))delete S.asgn[k];
+      }else if(entry.action==='delete'){
+        S.persons.push(entry.personData);
+        showToast('👤 Persoon hersteld — toewijzingen zijn niet teruggezet');
+      }else if(entry.action==='update'){
+        const p=gp(entry.personId);if(p)p[entry.field]=entry.before;
+      }
+    }else if(entry.type==='wn'){
+      if(entry.action==='add'){
+        S.wns=S.wns.filter(w=>w.id!==entry.wnId);
+        for(const k of Object.keys(S.asgn))if(S.asgn[k]===entry.wnId)delete S.asgn[k];
+      }else if(entry.action==='delete'){
+        S.wns.push(entry.wnData);
+        showToast('🔢 WN hersteld — toewijzingen zijn niet teruggezet');
+      }else if(entry.action==='update'){
+        const w=gwn(entry.wnId);if(w)w[entry.field]=entry.before;
+      }
+    }
+    const origDesc=logDesc(entry);
+    S.auditlog=S.auditlog.filter(e=>e.id!==id);
+    logAction({type:'undo',desc:`↩ Teruggedraaid: ${origDesc}`});
+    onChange();render();showToast('↩ Actie teruggedraaid');
+  }catch(err){showToast('❌ Terugdraaien mislukt: '+err.message);}
+}
+
+function bLogboek(){
+  const log=S.auditlog||[];
+  const byDay={};
+  for(const e of log){
+    const d=new Date(e.ts);
+    const ds=fd(d.getFullYear(),d.getMonth(),d.getDate());
+    if(!byDay[ds])byDay[ds]=[];
+    byDay[ds].push(e);
+  }
+  const days=Object.keys(byDay).sort().reverse();
+  const typeColors={asgn:'#3b82f6',leave:'#f59e0b',actual:'#7c3aed',person:'#10b981',wn:'#6366f1',undo:'#94a3b8'};
+  return`<div>
+    <div style="margin-bottom:12px;font-size:12px;color:#94a3b8;">${log.length} ${log.length===1?'actie':'acties'} bijgehouden · laatste ${LOG_DAYS} dagen</div>
+    ${!log.length?`<div class="card" style="text-align:center;padding:36px;color:#94a3b8;">Nog geen wijzigingen geregistreerd. Acties worden hier automatisch bijgehouden.</div>`:''}
+    ${days.map(ds=>{
+      const entries=byDay[ds];
+      const d=parseDs(ds);
+      const label=ds===TSTR?'Vandaag':d.toLocaleDateString('nl',{weekday:'long',day:'numeric',month:'long'});
+      return`<div style="margin-bottom:18px;">
+        <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;padding:0 2px;">${label}</div>
+        ${entries.map(e=>{
+          const time=new Date(e.ts).toLocaleTimeString('nl',{hour:'2-digit',minute:'2-digit'});
+          const desc=logDesc(e);
+          const canUndo=e.type!=='undo';
+          const dot=typeColors[e.type]||'#94a3b8';
+          return`<div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:9px;padding:10px 13px;margin-bottom:5px;box-shadow:0 1px 3px rgba(0,0,0,.07);">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;"></span>
+            <span style="font-size:11px;color:#94a3b8;white-space:nowrap;min-width:36px;">${time}</span>
+            <span style="flex:1;font-size:13px;color:#1e293b;">${esc(desc)}</span>
+            ${canUndo
+              ?`<button onclick="undoLog('${e.id}')" style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;border-radius:6px;cursor:pointer;font-size:11px;padding:3px 9px;white-space:nowrap;font-weight:600;flex-shrink:0;">↩ Terugdraaien</button>`
+              :`<span style="font-size:10px;color:#94a3b8;font-style:italic;white-space:nowrap;">↩ ongedaan</span>`}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 // ── Terugkerende toewijzingen ─────────────────────────────────
@@ -1226,7 +1379,7 @@ function applyRecurring(){
   const from=parseDs(rm.fromDs),to=parseDs(rm.toDs);
   if(from>to){showToast('⚠️ Begindatum moet vóór einddatum liggen');return;}
   const persons=rm.pid==='all'?S.persons:[gp(parseInt(rm.pid))].filter(Boolean);
-  let count=0;
+  const changes=[];let count=0;
   let cur=new Date(from);
   while(cur<=to){
     const dow=cur.getDay();
@@ -1234,12 +1387,21 @@ function applyRecurring(){
       const ds=fdDate(cur);
       for(const p of persons){
         if(pWorks(p,cur.getFullYear(),cur.getMonth(),cur.getDate())){
-          S.asgn[`${p.id}_${ds}`]=rm.wnId;
+          const key=`${p.id}_${ds}`;
+          const before=S.asgn[key];
+          S.asgn[key]=rm.wnId;
+          changes.push({key,before,after:rm.wnId});
           count++;
         }
       }
     }
     cur=addDays(cur,1);
+  }
+  if(changes.length){
+    const wn=gwn(rm.wnId);
+    const pLabel=rm.pid==='all'?'alle personen':gp(parseInt(rm.pid))?.name||'?';
+    logAction({type:'asgn',action:'batch',wnId:rm.wnId,wnLabel:wn?.label,changes,
+      desc:`Herhaling: ${wn?.label||'?'} voor ${pLabel} (${count} dagdelen)`});
   }
   S.recurringModal=null;
   onChange();render();
