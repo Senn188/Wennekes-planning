@@ -75,6 +75,8 @@ textarea.jtxt{width:100%;height:160px;border:1px solid #d1d5db;border-radius:8px
 .dc.range-sel{outline:2px solid #6366f1;outline-offset:-1px;background:#eef2ff!important;}
 .dc.verlof{background:repeating-linear-gradient(135deg,#fef3c7,#fef3c7 3px,#fffbeb 3px,#fffbeb 9px)!important;}
 .dc.ziek{background:repeating-linear-gradient(135deg,#fee2e2,#fee2e2 3px,#fff1f2 3px,#fff1f2 9px)!important;}
+.dc.gedeeltelijk{background:repeating-linear-gradient(135deg,#e0f2fe,#e0f2fe 3px,#f0f9ff 3px,#f0f9ff 9px)!important;}
+.dc.bijzonder{background:repeating-linear-gradient(135deg,#fce7f3,#fce7f3 3px,#fdf4ff 3px,#fdf4ff 9px)!important;}
 .dh.feestdag{background:#fde68a!important;color:#92400e!important;}
 .dc.feestdag-cel{background:#fffbeb!important;}
 .conflict-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;vertical-align:middle;margin-left:2px;}
@@ -162,7 +164,7 @@ let S={
     {id:1,label:'WN-001',needed:80,color:COLORS[0],desc:'',imgs:[],pdfUrls:[]},
     {id:2,label:'WN-002',needed:40,color:COLORS[1],desc:'',imgs:[],pdfUrls:[]},
   ],
-  asgn:{},leave:{},actual:{},auditlog:[],modal:null,dataModal:null,wnEditModal:null,rangeModal:null,recurringModal:null,npid:4,nwid:3,viewStart:getViewMonday(now),instTab:'personen'
+  asgn:{},leave:{},actual:{},auditlog:[],requests:{},leaveNotes:{},modal:null,dataModal:null,wnEditModal:null,rangeModal:null,recurringModal:null,rejectModal:null,npid:4,nwid:3,viewStart:getViewMonday(now),instTab:'personen'
 };
 
 let SYNC={dbUrl:'',webApiKey:'',cloudName:'',uploadPreset:'',enabled:false};
@@ -221,13 +223,15 @@ function applyData(d){
   if(d.leave)S.leave=d.leave; else if(!S.leave)S.leave={};
   if(d.actual)S.actual=d.actual; else if(!S.actual)S.actual={};
   if(d.auditlog)S.auditlog=d.auditlog; else if(!S.auditlog)S.auditlog=[];
+  if(d.requests)S.requests=d.requests; else if(!S.requests)S.requests={};
+  if(d.leaveNotes)S.leaveNotes=d.leaveNotes; else if(!S.leaveNotes)S.leaveNotes={};
   if(d.wns)S.wns=S.wns.map(w=>({deadline:'',  ...w}));
   if(d.npid)S.npid=d.npid;
   if(d.nwid)S.nwid=d.nwid;
   if(S.persons.length)S.npid=Math.max(S.npid,...S.persons.map(p=>p.id+1));
   if(S.wns.length)S.nwid=Math.max(S.nwid,...S.wns.map(w=>w.id+1));
 }
-function getExportData(){return{persons:S.persons,wns:S.wns,asgn:S.asgn,leave:S.leave||{},actual:S.actual||{},auditlog:S.auditlog||[],npid:S.npid,nwid:S.nwid,updatedAt:Date.now()};}
+function getExportData(){return{persons:S.persons,wns:S.wns,asgn:S.asgn,leave:S.leave||{},actual:S.actual||{},auditlog:S.auditlog||[],requests:S.requests||{},leaveNotes:S.leaveNotes||{},npid:S.npid,nwid:S.nwid,updatedAt:Date.now()};}
 
 function fbBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning.json';}
 
@@ -359,7 +363,7 @@ function buildApp(){
     </div>
   </div>
   <div class="tabs">
-    ${['planning','capaciteit','uren','instellingen'].map(t=>`<button class="tab ${S.tab===t?'active':''}" onclick="setTab('${t}')">${{planning:'📋 Planning',capaciteit:'📊 Capaciteit',uren:'⏱ Uren',instellingen:'⚙️ Instellingen'}[t]}</button>`).join('')}
+    ${['planning','capaciteit','uren','instellingen'].map(t=>{const pendingCount=t==='instellingen'?Object.values(S.requests||{}).filter(r=>r.status==='pending').length:0;return`<button class="tab ${S.tab===t?'active':''}" onclick="setTab('${t}')">${{planning:'📋 Planning',capaciteit:'📊 Capaciteit',uren:'⏱ Uren',instellingen:'⚙️ Instellingen'}[t]}${pendingCount?` <span style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:10px;font-weight:700;vertical-align:middle;margin-left:2px;">${pendingCount}</span>`:''}</button>`;}).join('')}
   </div>
   <div class="content">
     ${S.tab==='planning'?bPlanning():S.tab==='capaciteit'?bCap():S.tab==='uren'?bUren():bInst()}
@@ -368,7 +372,8 @@ function buildApp(){
   ${S.dataModal?bDataModal():''}
   ${S.wnEditModal?bWnEditModal():''}
   ${S.rangeModal?bRangeModal():''}
-  ${S.recurringModal?bRecurringModal():''}`;
+  ${S.recurringModal?bRecurringModal():''}
+  ${S.rejectModal?bRejectModal():''}`;
 }
 
 function bPlanning(){
@@ -412,8 +417,11 @@ function bPlanning(){
               const works=pWorks(p,d.getFullYear(),d.getMonth(),d.getDate());
               const isToday=ds===TSTR;
               const leaveVal=(S.leave||{})[`${p.id}_${ds}`];
-              const leaveClass=leaveVal==='V'?' verlof':leaveVal==='Z'?' ziek':'';
-              const leaveIcon=leaveVal?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;pointer-events:none;opacity:.85;">${leaveVal==='V'?'🌴':'🤒'}</div>`:'';
+              const leaveClass=leaveVal==='V'?' verlof':leaveVal==='Z'?' ziek':leaveVal==='G'?' gedeeltelijk':leaveVal==='B'?' bijzonder':'';
+              const leaveEmoji=leaveVal==='V'?'🌴':leaveVal==='Z'?'🤒':leaveVal==='G'?'⏰':leaveVal==='B'?'🎗️':'';
+              const leaveNote=(S.leaveNotes||{})[`${p.id}_${ds}`];
+              const leaveTip=leaveNote?(leaveNote.fromTime?`${leaveNote.fromTime}, ${leaveNote.hours}u`:leaveNote.category||''):'';
+              const leaveIcon=leaveVal?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${leaveVal==='G'||leaveVal==='B'?'12':'16'}px;pointer-events:none;opacity:.85;flex-direction:column;gap:1px;" title="${leaveTip}">${leaveEmoji}${leaveTip?`<span style="font-size:7px;color:#374151;font-weight:700;">${esc(leaveTip)}</span>`:''}</div>`:'';
               const hol=getHoliday(ds);
               const holClass=hol&&!leaveVal?' feestdag-cel':'';
               const conflict=leaveVal&&wid!==undefined;
@@ -497,12 +505,13 @@ function bCap(){
 function setInstTab(t){S.instTab=t;render();}
 function bInst(){
   const it=S.instTab||'personen';
-  const subTabs=[['personen','👤 Personen & WN\'s'],['sync','☁️ Synchronisatie'],['logboek','📜 Logboek']];
+  const pendingN=Object.values(S.requests||{}).filter(r=>r.status==='pending').length;
+  const subTabs=[['personen','👤 Personen & WN\'s'],['aanvragen',`📋 Aanvragen${pendingN?` (${pendingN})`:''}`],['sync','☁️ Synchronisatie'],['logboek','📜 Logboek']];
   return`<div>
     <div style="display:flex;gap:2px;margin-bottom:18px;background:#f1f5f9;border-radius:10px;padding:4px;width:fit-content;">
       ${subTabs.map(([k,lbl])=>`<button onclick="setInstTab('${k}')" style="padding:7px 16px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:${it===k?'#fff':'transparent'};color:${it===k?'#1e293b':'#64748b'};box-shadow:${it===k?'0 1px 3px rgba(0,0,0,.1)':'none'};">${lbl}</button>`).join('')}
     </div>
-    ${it==='personen'?bInstPersonen():it==='sync'?bSync():bLogboek()}
+    ${it==='personen'?bInstPersonen():it==='aanvragen'?bAanvragen():it==='sync'?bSync():bLogboek()}
   </div>`;
 }
 function bInstPersonen(){
@@ -1199,6 +1208,94 @@ function setActualHrs(pid,ds,v){
   else{S.actual[key]=Math.max(0,num);}
   logAction({type:'actual',pid,ds,before,after:S.actual[key],pName:gp(pid)?.name});
   onChange();
+}
+
+// ── Verlofaanvragen (planner-kant) ───────────────────────────
+const REQ_TYPES={verlof:'🌴 Verlof',gedeeltelijk:'⏰ Gedeeltelijk',bijzonder:'🎗️ Bijzonder verlof'};
+const REQ_CATS={begrafenis:'Begrafenis',huwelijk:'Huwelijk',verhuizing:'Verhuizing',geboorte:'Geboorte kind',overig:'Overig'};
+
+function bAanvragen(){
+  const reqs=Object.values(S.requests||{}).sort((a,b)=>b.submittedAt-a.submittedAt);
+  const pending=reqs.filter(r=>r.status==='pending');
+  const rest=reqs.filter(r=>r.status!=='pending');
+  function reqCard(r){
+    const p=gp(r.pid);
+    const ts=new Date(r.submittedAt).toLocaleDateString('nl',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    let detail='';
+    if(r.type==='verlof')detail=r.fromDs===r.toDs?r.fromDs:`${r.fromDs} t/m ${r.toDs}`;
+    else if(r.type==='gedeeltelijk')detail=`${r.ds} · vanaf ${r.fromTime} · ${r.hours}u`;
+    else if(r.type==='bijzonder')detail=`${r.ds} · ${REQ_CATS[r.category]||r.category}`;
+    const statusBadge=r.status==='pending'?`<span style="background:#fef3c7;color:#92400e;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;">⏳ Wacht op goedkeuring</span>`:r.status==='approved'?`<span style="background:#dcfce7;color:#15803d;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;">✓ Goedgekeurd</span>`:`<span style="background:#fee2e2;color:#dc2626;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;">✕ Afgewezen</span>`;
+    return`<div class="card" style="margin-bottom:10px;border-left:4px solid ${r.status==='pending'?'#f59e0b':r.status==='approved'?'#22c55e':'#ef4444'};">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;">
+            <span style="font-weight:700;font-size:14px;">${esc(p?.name||'?')}</span>
+            <span style="background:#f1f5f9;border-radius:6px;padding:2px 8px;font-size:12px;">${REQ_TYPES[r.type]||r.type}</span>
+            ${statusBadge}
+          </div>
+          <div style="font-size:13px;color:#374151;margin-bottom:3px;">📅 ${esc(detail)}</div>
+          ${r.note?`<div style="font-size:12px;color:#64748b;font-style:italic;">"${esc(r.note)}"</div>`:''}
+          ${r.status==='rejected'&&r.reviewNote?`<div style="font-size:12px;color:#dc2626;margin-top:4px;">Reden: ${esc(r.reviewNote)}</div>`:''}
+          <div style="font-size:10px;color:#94a3b8;margin-top:6px;">Ingediend: ${ts}</div>
+        </div>
+        ${r.status==='pending'?`<div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick="approveRequest('${r.id}')" class="btn btn-g btn-sm">✓ Goedkeuren</button>
+          <button onclick="openRejectModal('${r.id}')" class="btn btn-d btn-sm">✕ Afwijzen</button>
+        </div>`:''}
+      </div>
+    </div>`;
+  }
+  return`<div>
+    ${!reqs.length?`<div class="card" style="text-align:center;padding:36px;color:#94a3b8;">Nog geen aanvragen ingediend door medewerkers.</div>`:''}
+    ${pending.length?`<div style="margin-bottom:6px;font-size:12px;font-weight:700;color:#92400e;">⏳ Openstaand (${pending.length})</div>${pending.map(reqCard).join('')}`:''}
+    ${rest.length?`<div style="margin-top:${pending.length?14:0}px;margin-bottom:6px;font-size:12px;font-weight:600;color:#64748b;">Afgehandeld</div>${rest.map(reqCard).join('')}`:''}
+  </div>`;
+}
+
+function approveRequest(id){
+  const r=(S.requests||{})[id];if(!r)return;
+  if(!S.leave)S.leave={};
+  if(!S.leaveNotes)S.leaveNotes={};
+  const p=gp(r.pid);if(!p)return;
+  if(r.type==='verlof'){
+    let cur=parseDs(r.fromDs);const end=parseDs(r.toDs);
+    while(cur<=end){
+      const ds=fdDate(cur);
+      if(pWorks(p,cur.getFullYear(),cur.getMonth(),cur.getDate()))S.leave[`${r.pid}_${ds}`]='V';
+      cur=addDays(cur,1);
+    }
+  }else if(r.type==='gedeeltelijk'){
+    S.leave[`${r.pid}_${r.ds}`]='G';
+    S.leaveNotes[`${r.pid}_${r.ds}`]={type:'G',fromTime:r.fromTime,hours:r.hours,note:r.note||'',reqId:id};
+  }else if(r.type==='bijzonder'){
+    S.leave[`${r.pid}_${r.ds}`]='B';
+    S.leaveNotes[`${r.pid}_${r.ds}`]={type:'B',category:r.category,note:r.note||'',reqId:id};
+  }
+  r.status='approved';r.reviewedAt=Date.now();
+  logAction({type:'leave',action:'approve',pid:r.pid,pName:p.name,desc:`✓ Verlofaanvraag goedgekeurd: ${p.name} — ${REQ_TYPES[r.type]}`});
+  onChange();render();showToast('✓ Aanvraag goedgekeurd');
+}
+function openRejectModal(id){S.rejectModal={id};render();}
+function confirmReject(id,reason){
+  const r=(S.requests||{})[id];if(!r)return;
+  const p=gp(r.pid);
+  r.status='rejected';r.reviewedAt=Date.now();r.reviewNote=reason||'';
+  logAction({type:'leave',action:'reject',pid:r.pid,pName:p?.name,desc:`✕ Verlofaanvraag afgewezen: ${p?.name} — ${REQ_TYPES[r.type]}`});
+  S.rejectModal=null;onChange();render();showToast('Aanvraag afgewezen');
+}
+function bRejectModal(){
+  const rm=S.rejectModal;const r=(S.requests||{})[rm.id];const p=r?gp(r.pid):null;
+  return`<div class="ov" onclick="S.rejectModal=null;render()"><div class="modal" style="max-width:420px;" onclick="event.stopPropagation()">
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;">✕ Aanvraag afwijzen</h3>
+    <p style="font-size:12px;color:#64748b;margin-bottom:14px;">${esc(p?.name||'?')} — ${REQ_TYPES[r?.type||'']||''}</p>
+    <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Reden <span style="font-weight:400;color:#94a3b8;">(optioneel — zichtbaar voor medewerker)</span></label>
+    <textarea id="rej-reason" class="inp" style="height:80px;resize:none;" placeholder="Bijv. te druk die week, probeer een andere datum..."></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-d" style="flex:1;" onclick="confirmReject('${rm.id}',document.getElementById('rej-reason').value.trim())">✕ Afwijzen</button>
+      <button class="btn btn-s" onclick="S.rejectModal=null;render()">Annuleren</button>
+    </div>
+  </div></div>`;
 }
 
 // ── Audit trail ──────────────────────────────────────────────

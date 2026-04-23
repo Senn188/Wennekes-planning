@@ -40,9 +40,9 @@ const LS_AUTH='cap_plan_auth_v1';
 
 let SYNC={dbUrl:'',webApiKey:'',enabled:false};
 let _authToken=null,_tokenExpiry=0;
-let DATA={persons:[],wns:[],asgn:{},actual:{}};
+let DATA={persons:[],wns:[],asgn:{},leave:{},actual:{},requests:{},leaveNotes:{}};
 let AUTH={pid:null};
-let ST={screen:'loading',yr:now.getFullYear(),mo:now.getMonth(),detail:null,loginPid:null,loginErr:''};
+let ST={screen:'loading',yr:now.getFullYear(),mo:now.getMonth(),detail:null,loginPid:null,loginErr:'',requestModal:null,reqTab:'nieuw'};
 
 function fd(y,m,d){return`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
 function dim(y,m){return new Date(y,m+1,0).getDate();}
@@ -76,10 +76,14 @@ function applyData(d){
   if(d.persons)DATA.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||''}));
   if(d.wns)DATA.wns=d.wns.map(w=>({...w,desc:w.desc||'',imgs:w.imgs||[],pdfUrls:w.pdfUrls||[]}));
   if(d.asgn)DATA.asgn=d.asgn;
+  if(d.leave)DATA.leave=d.leave; else if(!DATA.leave)DATA.leave={};
   if(d.actual)DATA.actual=d.actual; else if(!DATA.actual)DATA.actual={};
+  if(d.requests)DATA.requests=d.requests; else if(!DATA.requests)DATA.requests={};
+  if(d.leaveNotes)DATA.leaveNotes=d.leaveNotes; else if(!DATA.leaveNotes)DATA.leaveNotes={};
 }
 function fbBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning.json';}
 function fbActualBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning/actual.json';}
+function fbRequestBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning/requests.json';}
 
 async function getAuthToken(){
   if(_authToken&&Date.now()<_tokenExpiry)return _authToken;
@@ -121,9 +125,23 @@ async function startRealtimeSync(){
         const msg=JSON.parse(e.data);
         if(firstEvent){firstEvent=false;return;}
         if(msg.data&&msg.data.persons){
+          // Check for request status changes before applying
+          const pid=AUTH.pid;
+          let toastMsg='🔄 Planning bijgewerkt';
+          if(pid&&msg.data.requests){
+            const newReqs=msg.data.requests;
+            const oldReqs=DATA.requests||{};
+            for(const id of Object.keys(newReqs)){
+              const nr=newReqs[id];const or=oldReqs[id];
+              if(nr&&nr.pid===pid&&or&&or.status!==nr.status){
+                if(nr.status==='approved')toastMsg='✅ Verlofaanvraag goedgekeurd!';
+                else if(nr.status==='rejected')toastMsg='❌ Verlofaanvraag afgewezen';
+              }
+            }
+          }
           applyData(msg.data);
           try{localStorage.setItem(LS_DATA,JSON.stringify(msg.data));}catch(er){}
-          render();showToast('🔄 Planning bijgewerkt');
+          render();showToast(toastMsg,3000);
         }
       }catch(err){}
     });
@@ -138,7 +156,7 @@ function buildApp(){
   if(ST.screen==='loading')return`<div class="center-box"><div style="text-align:center;"><div style="font-size:44px;margin-bottom:14px;">⏳</div><div style="color:#64748b;font-size:14px;">Even laden...</div></div></div>`;
   if(ST.screen==='setup')return buildSetup();
   if(ST.screen==='login')return buildLogin();
-  return buildPlanning();
+  return buildPlanning()+(ST.requestModal?buildRequestModal():'');
 }
 
 function buildSetup(){
@@ -189,13 +207,20 @@ function buildPlanning(){
   const todayWid=isThisMonth?DATA.asgn[`${p.id}_${TSTR}`]:undefined;
   const todayWn=todayWid?gwn(todayWid):null;
 
+  const myRequests=Object.values(DATA.requests||{}).filter(r=>r.pid===p.id);
+  const pendingN=myRequests.filter(r=>r.status==='pending').length;
+
   return`<div>
     <div class="hdr">
       <div>
         <div style="font-size:17px;font-weight:700;">📋 Mijn Planning</div>
         <div style="font-size:12px;opacity:.8;margin-top:2px;">${esc(p.name)}</div>
       </div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button style="position:relative;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;font-weight:500;" onclick="openRequestModal()">
+          📋 Verlof
+          ${pendingN?`<span style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;">${pendingN}</span>`:''}
+        </button>
         <button style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;" onclick="refreshAndShow()" title="Vernieuwen">🔄</button>
         <button style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;" onclick="logout()">Uitloggen</button>
       </div>
@@ -229,22 +254,33 @@ function buildPlanning(){
         const dow=new Date(ST.yr,ST.mo,d).getDay();
         const isWknd=dow===0||dow===6;
         const actHrs=(DATA.actual||{})[`${p.id}_${ds}`];
-        return`<div class="day-card" style="border-left:4px solid ${isToday?'#3b82f6':wn?wn.color:works?'#e2e8f0':'#f1f5f9'};opacity:${works?1:.45};${wn?'cursor:pointer;':''}" ${wn?`onclick="openDetail(${wn.id},'${ds}')"`:''}">
+        const leaveVal=(DATA.leave||{})[`${p.id}_${ds}`];
+        const leaveEmoji=leaveVal==='V'?'🌴':leaveVal==='Z'?'🤒':leaveVal==='G'?'⏰':leaveVal==='B'?'🎗️':'';
+        const leaveLabel=leaveVal==='V'?'Verlof':leaveVal==='Z'?'Ziek':leaveVal==='G'?'Gedeeltelijk verlof':leaveVal==='B'?'Bijzonder verlof':'';
+        const leaveBg=leaveVal==='V'?'#dcfce7':leaveVal==='Z'?'#fee2e2':leaveVal==='G'?'#e0f2fe':leaveVal==='B'?'#fce7f3':'';
+        const leaveCol=leaveVal==='V'?'#15803d':leaveVal==='Z'?'#dc2626':leaveVal==='G'?'#0369a1':leaveVal==='B'?'#9d174d':'';
+        const pendingReq=myRequests.find(r=>r.status==='pending'&&(r.ds===ds||r.fromDs<=ds&&ds<=r.toDs));
+        const borderCol=isToday?'#3b82f6':leaveVal?leaveCol:wn?wn.color:works?'#e2e8f0':'#f1f5f9';
+        const clickable=wn||leaveVal;
+        return`<div class="day-card" style="border-left:4px solid ${borderCol};opacity:${works||leaveVal?1:.45};background:${leaveBg||'#fff'};${clickable?'cursor:pointer;':''}" ${wn?`onclick="openDetail(${wn.id},'${ds}')"`:''}">
           <div style="min-width:44px;text-align:center;">
             <div style="font-size:10px;font-weight:700;color:${isToday?'#2563eb':isWknd?'#94a3b8':'#64748b'};">${DNMS[dow]}</div>
             <div style="font-size:22px;font-weight:700;color:${isToday?'#2563eb':'#1e293b'};line-height:1.15;">${d}</div>
           </div>
           <div style="flex:1;min-width:0;">
-            ${wn
-              ?`<div style="font-weight:600;font-size:13px;color:${wn.color};">${esc(wn.label)}</div><div style="font-size:11px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${wn.desc?esc(wn.desc.substring(0,50))+(wn.desc.length>50?'...':''):'Tik voor details'}</div>`
-              :works
-                ?`<div style="font-size:12px;color:#94a3b8;">Geen toewijzing</div>`
-                :`<div style="font-size:12px;color:#cbd5e1;">Vrij</div>`
+            ${leaveVal
+              ?`<div style="font-weight:600;font-size:13px;color:${leaveCol};">${leaveEmoji} ${leaveLabel}</div>${wn?`<div style="font-size:11px;color:#64748b;margin-top:1px;">${esc(wn.label)}</div>`:''}`
+              :wn
+                ?`<div style="font-weight:600;font-size:13px;color:${wn.color};">${esc(wn.label)}</div><div style="font-size:11px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${wn.desc?esc(wn.desc.substring(0,50))+(wn.desc.length>50?'...':''):'Tik voor details'}</div>`
+                :works
+                  ?`<div style="font-size:12px;color:#94a3b8;">Geen toewijzing</div>`
+                  :`<div style="font-size:12px;color:#cbd5e1;">Vrij</div>`
             }
+            ${pendingReq?`<div style="font-size:10px;color:#d97706;margin-top:2px;">⏳ Aanvraag in behandeling</div>`:''}
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
             ${actHrs!==undefined?`<span style="font-size:10px;font-weight:700;background:#f5f3ff;color:#5b21b6;border-radius:6px;padding:2px 6px;">⏱${actHrs}u</span>`:''}
-            ${wn?`<div style="font-size:20px;color:#cbd5e1;">›</div>`:''}
+            ${wn&&!leaveVal?`<div style="font-size:20px;color:#cbd5e1;">›</div>`:''}
           </div>
         </div>`;
       }).join('')}
@@ -335,6 +371,170 @@ async function submitActual(ds,hrs){
     }catch(e){showToast('⚠️ Opslaan mislukt — lokaal bewaard');return;}
   }
   showToast(DATA.actual[key]!==undefined?`⏱ ${DATA.actual[key]}u opgeslagen`:'⏱ Uren verwijderd');
+  render();
+}
+
+function openRequestModal(){
+  ST.requestModal={type:'verlof',fromDs:TSTR,toDs:TSTR,ds:TSTR,fromTime:'08:00',hours:'',category:'begrafenis',note:''};
+  ST.reqTab='nieuw';
+  render();
+}
+
+function buildRequestModal(){
+  const p=gp(AUTH.pid);if(!p)return'';
+  const rm=ST.requestModal;
+  const myRequests=Object.values(DATA.requests||{}).filter(r=>r.pid===p.id).sort((a,b)=>b.submittedAt-a.submittedAt);
+  const STATUS_LABEL={pending:'⏳ In behandeling',approved:'✅ Goedgekeurd',rejected:'❌ Afgewezen',cancelled:'🚫 Ingetrokken'};
+  const STATUS_BG={pending:'#fef3c7',approved:'#dcfce7',rejected:'#fee2e2',cancelled:'#f1f5f9'};
+  const STATUS_COL={pending:'#92400e',approved:'#15803d',rejected:'#dc2626',cancelled:'#64748b'};
+  const TYPE_LABEL={verlof:'🌴 Hele dag verlof',gedeeltelijk:'⏰ Gedeeltelijk verlof',bijzonder:'🎗️ Bijzonder verlof'};
+  const CAT_OPTS=['begrafenis','huwelijk','verhuizing','geboorte','overig'];
+  const CAT_LABEL={begrafenis:'Begrafenis/uitvaart',huwelijk:'Huwelijk/feest',verhuizing:'Verhuizing',geboorte:'Geboorte kind',overig:'Overig'};
+
+  return`<div class="ov" onclick="ST.requestModal=null;render()">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <h2 style="font-size:18px;font-weight:700;flex:1;">📋 Verlofaanvragen</h2>
+        <button onclick="ST.requestModal=null;render()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1;">✕</button>
+      </div>
+
+      <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:10px;padding:3px;margin-bottom:18px;">
+        ${['nieuw','mijn'].map(tab=>`<button onclick="ST.reqTab='${tab}';render()" style="flex:1;padding:8px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;background:${ST.reqTab===tab?'#fff':'transparent'};color:${ST.reqTab===tab?'#1e293b':'#64748b'};box-shadow:${ST.reqTab===tab?'0 1px 3px rgba(0,0,0,.1)':'none'};">${tab==='nieuw'?'➕ Nieuwe aanvraag':'📜 Mijn aanvragen'+(myRequests.length?` (${myRequests.length})`:'')} </button>`).join('')}
+      </div>
+
+      ${ST.reqTab==='nieuw'?`
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Type verlof</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${['verlof','gedeeltelijk','bijzonder'].map(t=>`
+            <label style="display:flex;align-items:center;gap:10px;background:${rm.type===t?'#eff6ff':'#f8fafc'};border:2px solid ${rm.type===t?'#3b82f6':'#e2e8f0'};border-radius:10px;padding:11px 13px;cursor:pointer;">
+              <input type="radio" name="req-type" value="${t}" ${rm.type===t?'checked':''} onchange="ST.requestModal.type='${t}';render()" style="accent-color:#3b82f6;">
+              <span style="font-size:13px;font-weight:600;color:${rm.type===t?'#1d4ed8':'#374151'};">${TYPE_LABEL[t]}</span>
+            </label>`).join('')}
+          </div>
+        </div>
+
+        ${rm.type==='verlof'?`
+        <div style="display:flex;gap:10px;">
+          <div style="flex:1;"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Van</label>
+            <input class="inp" type="date" value="${rm.fromDs}" onchange="ST.requestModal.fromDs=this.value;if(this.value>ST.requestModal.toDs)ST.requestModal.toDs=this.value;render()">
+          </div>
+          <div style="flex:1;"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Tot en met</label>
+            <input class="inp" type="date" value="${rm.toDs}" min="${rm.fromDs}" onchange="ST.requestModal.toDs=this.value;render()">
+          </div>
+        </div>`:''}
+
+        ${rm.type==='gedeeltelijk'?`
+        <div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Datum</label>
+          <input class="inp" type="date" value="${rm.ds}" onchange="ST.requestModal.ds=this.value;render()">
+        </div>
+        <div style="display:flex;gap:10px;">
+          <div style="flex:1;"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Vertrek vanaf</label>
+            <input class="inp" type="time" value="${rm.fromTime}" onchange="ST.requestModal.fromTime=this.value;">
+          </div>
+          <div style="flex:1;"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Aantal uren</label>
+            <input class="inp" type="number" min="0.5" max="12" step="0.5" placeholder="bv. 2" value="${rm.hours}" onchange="ST.requestModal.hours=this.value;" style="text-align:center;">
+          </div>
+        </div>`:''}
+
+        ${rm.type==='bijzonder'?`
+        <div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Datum</label>
+          <input class="inp" type="date" value="${rm.ds}" onchange="ST.requestModal.ds=this.value;render()">
+        </div>
+        <div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Reden</label>
+          <select class="inp" onchange="ST.requestModal.category=this.value;">
+            ${CAT_OPTS.map(c=>`<option value="${c}" ${rm.category===c?'selected':''}>${CAT_LABEL[c]}</option>`).join('')}
+          </select>
+        </div>`:''}
+
+        <div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;">Opmerking <span style="font-weight:400;color:#94a3b8;">(optioneel)</span></label>
+          <textarea class="inp" rows="2" placeholder="Aanvullende toelichting..." style="resize:none;" onchange="ST.requestModal.note=this.value;">${esc(rm.note)}</textarea>
+        </div>
+
+        <button class="btn btn-p" style="width:100%;padding:13px;font-size:14px;" onclick="submitRequest()">📤 Aanvraag indienen</button>
+      </div>`:`
+
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${myRequests.length===0?`<div style="text-align:center;padding:30px 0;color:#94a3b8;font-size:14px;">📭 Geen aanvragen</div>`:''}
+        ${myRequests.map(r=>{
+          const st=r.status||'pending';
+          const typeIcon=r.type==='verlof'?'🌴':r.type==='gedeeltelijk'?'⏰':'🎗️';
+          const typeLabel=r.type==='verlof'?'Hele dag verlof':r.type==='gedeeltelijk'?'Gedeeltelijk verlof':'Bijzonder verlof';
+          const dateStr=r.type==='verlof'?`${r.fromDs}${r.fromDs!==r.toDs?' t/m '+r.toDs:''}`:r.ds||'';
+          return`<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:13px 14px;">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <div style="font-size:22px;line-height:1.2;">${typeIcon}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:700;color:#1e293b;">${typeLabel}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:2px;">📅 ${dateStr}</div>
+                ${r.type==='gedeeltelijk'?`<div style="font-size:11px;color:#64748b;margin-top:1px;">⏰ Vanaf ${r.fromTime||''}${r.hours?' — '+r.hours+'u':''}</div>`:''}
+                ${r.type==='bijzonder'&&r.category?`<div style="font-size:11px;color:#64748b;margin-top:1px;">${CAT_LABEL[r.category]||r.category}</div>`:''}
+                ${r.note?`<div style="font-size:11px;color:#94a3b8;margin-top:1px;font-style:italic;">"${esc(r.note.substring(0,60))}"</div>`:''}
+                <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span style="background:${STATUS_BG[st]};color:${STATUS_COL[st]};font-size:11px;font-weight:700;border-radius:6px;padding:3px 8px;">${STATUS_LABEL[st]||st}</span>
+                  <span style="font-size:10px;color:#94a3b8;">${new Date(r.submittedAt).toLocaleDateString('nl',{day:'numeric',month:'short',year:'numeric'})}</span>
+                </div>
+                ${st==='rejected'&&r.rejectReason?`<div style="margin-top:6px;background:#fee2e2;border-radius:8px;padding:7px 10px;font-size:12px;color:#dc2626;">💬 <em>${esc(r.rejectReason)}</em></div>`:''}
+              </div>
+              ${st==='pending'?`<button onclick="cancelRequest('${r.id}')" style="background:#fee2e2;border:none;color:#dc2626;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:11px;font-weight:600;flex-shrink:0;">Intrekken</button>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`}
+
+      <button style="width:100%;background:#f1f5f9;border:none;border-radius:10px;padding:13px;font-size:14px;cursor:pointer;font-weight:500;color:#374151;margin-top:14px;" onclick="ST.requestModal=null;render()">Sluiten</button>
+    </div>
+  </div>`;
+}
+
+async function submitRequest(){
+  const p=gp(AUTH.pid);if(!p)return;
+  const rm=ST.requestModal;
+  // Validate
+  if(rm.type==='verlof'){if(!rm.fromDs||!rm.toDs){showToast('⚠️ Vul de datums in');return;}if(rm.fromDs>rm.toDs){showToast('⚠️ Einddatum moet na begindatum liggen');return;}}
+  if(rm.type==='gedeeltelijk'){if(!rm.ds){showToast('⚠️ Kies een datum');return;}if(!rm.hours||isNaN(rm.hours)||parseFloat(rm.hours)<=0){showToast('⚠️ Vul het aantal uren in');return;}}
+  if(rm.type==='bijzonder'&&!rm.ds){showToast('⚠️ Kies een datum');return;}
+  const id='req_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+  const req={id,pid:p.id,pName:p.name,type:rm.type,status:'pending',submittedAt:Date.now(),note:rm.note||''};
+  if(rm.type==='verlof'){req.fromDs=rm.fromDs;req.toDs=rm.toDs;}
+  else if(rm.type==='gedeeltelijk'){req.ds=rm.ds;req.fromTime=rm.fromTime||'';req.hours=parseFloat(rm.hours);}
+  else if(rm.type==='bijzonder'){req.ds=rm.ds;req.category=rm.category||'overig';}
+  if(!DATA.requests)DATA.requests={};
+  DATA.requests[id]=req;
+  // Persist locally
+  try{const raw=localStorage.getItem(LS_DATA);if(raw){const d=JSON.parse(raw);d.requests=DATA.requests;localStorage.setItem(LS_DATA,JSON.stringify(d));}}catch(e){}
+  // PATCH to Firebase
+  if(SYNC.enabled&&SYNC.dbUrl){
+    try{
+      const t=await getAuthToken();
+      const url=fbRequestBase()+(t?'?auth='+t:'');
+      const patch={};patch[id]=req;
+      const r=await fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+      if(!r.ok){showToast('⚠️ Opslaan mislukt');return;}
+    }catch(e){showToast('⚠️ Verbinding mislukt — lokaal bewaard');return;}
+  }
+  showToast('✅ Aanvraag ingediend!');
+  ST.reqTab='mijn';
+  render();
+}
+
+async function cancelRequest(id){
+  if(!confirm('Aanvraag intrekken?'))return;
+  const req=(DATA.requests||{})[id];if(!req)return;
+  req.status='cancelled';req.cancelledAt=Date.now();
+  // Persist locally
+  try{const raw=localStorage.getItem(LS_DATA);if(raw){const d=JSON.parse(raw);d.requests=DATA.requests;localStorage.setItem(LS_DATA,JSON.stringify(d));}}catch(e){}
+  // PATCH to Firebase
+  if(SYNC.enabled&&SYNC.dbUrl){
+    try{
+      const t=await getAuthToken();
+      const url=fbRequestBase()+(t?'?auth='+t:'');
+      const patch={};patch[id]=req;
+      await fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+    }catch(e){showToast('⚠️ Verbinding mislukt');}
+  }
+  showToast('🚫 Aanvraag ingetrokken');
   render();
 }
 
