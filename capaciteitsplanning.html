@@ -3,26 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mijn Planning</title>
+<title>Capaciteitsplanning</title>
 <style>
-:root{color-scheme:light;}*{box-sizing:border-box;margin:0;padding:0;}
+:root{color-scheme:light;}
+*{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;min-height:100vh;color:#1e293b;}
+.hdr{background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(0,0,0,.25);gap:12px;flex-wrap:wrap;}
+.hdr h1{font-size:18px;font-weight:700;}
+.hdr-sub{font-size:12px;opacity:.75;margin-top:2px;}
+.hdr-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.sync-badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(255,255,255,.15);cursor:default;}
+.sync-dot{width:8px;height:8px;border-radius:50%;}
+.tabs{background:#fff;border-bottom:1px solid #e2e8f0;display:flex;padding:0 16px;overflow-x:auto;}
+.tab{padding:11px 18px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:#64748b;border-bottom:2px solid transparent;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0;}
+.tab.active{color:#2563eb;border-bottom-color:#2563eb;}
+.tab:hover:not(.active){color:#334155;}
+.content{padding:16px;max-width:1600px;}
+.card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+.gw{overflow-x:auto;}
+.pg{border-collapse:collapse;width:max-content;}
+.pg th,.pg td{border:1px solid #e2e8f0;}
+.pg thead th{background:#f8fafc;font-size:11px;padding:3px 2px;text-align:center;font-weight:600;}
+.nc{position:sticky;left:0;background:#fff;z-index:5;min-width:130px;max-width:130px;padding:5px 10px;border-right:2px solid #e2e8f0!important;}
+.nh{position:sticky;left:0;background:#f8fafc;z-index:6;min-width:130px;max-width:130px;padding:5px 10px;text-align:left!important;border-right:2px solid #e2e8f0!important;}
+.dc{width:40px;min-width:40px;max-width:40px;height:56px;cursor:pointer;position:relative;padding:0;vertical-align:middle;transition:background .1s;}
+.dc:hover{background:rgba(0,0,0,.04);}
+.dc.off{background:#f8fafc!important;cursor:default;border-color:#f1f5f9!important;}
+.dh{width:40px;min-width:40px;}
+.dh.wknd{color:#94a3b8;}
+.dh.td-col{background:#dbeafe;}
+.ptrack{background:#e2e8f0;border-radius:999px;height:14px;overflow:hidden;}
+.pfill{height:100%;border-radius:999px;transition:width .4s;}
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:999;backdrop-filter:blur(2px);}
+.modal{background:#fff;border-radius:16px;padding:22px;min-width:290px;max-width:480px;width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.28);max-height:90vh;overflow-y:auto;}
 .btn{border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;padding:8px 14px;transition:opacity .15s;}
 .btn:hover{opacity:.85;}
 .btn-p{background:#2563eb;color:#fff;}
 .btn-s{background:#f1f5f9;color:#374151;border:1px solid #e2e8f0;}
+.btn-d{background:#fee2e2;color:#dc2626;}
+.btn-g{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;}
 .btn-sm{padding:5px 10px;font-size:12px;}
-.inp{border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;transition:border-color .15s;font-family:inherit;background:#fff;width:100%;}
+.btn-gst{color:#fff;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);}
+.inp{border:1px solid #d1d5db;border-radius:8px;padding:7px 11px;font-size:13px;outline:none;transition:border-color .15s;font-family:inherit;}
 .inp:focus{border-color:#3b82f6;box-shadow:0 0 0 3px #bfdbfe55;}
+.inp-sm{border:1px solid #e2e8f0;border-radius:6px;padding:3px 7px;font-size:12px;outline:none;font-family:inherit;}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:700px){.sgrid{grid-template-columns:1fr;}}
+.brow td{height:28px;border-top:2px solid #e2e8f0;background:#f8fafc;}
+.bnc{background:#f8fafc!important;font-size:11px;font-weight:600;color:#475569;}
+.wnbtn{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;cursor:pointer;text-align:left;width:100%;transition:all .15s;}
+.dot{display:inline-block;border-radius:50%;flex-shrink:0;}
+.smgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.smcard{border-radius:10px;padding:14px;text-align:center;}
+.smnum{font-size:30px;font-weight:700;}
+.smlbl{font-size:11px;margin-top:3px;}
+textarea.jtxt{width:100%;height:160px;border:1px solid #d1d5db;border-radius:8px;padding:10px;font-family:monospace;font-size:12px;resize:vertical;}
+.pitem{background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:6px;}
+.prow1{display:flex;align-items:center;gap:7px;}
+.prow2{display:flex;align-items:center;gap:5px;margin-top:8px;flex-wrap:wrap;}
+.wd-btn{border:1px solid #cbd5e1;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;background:#fff;color:#64748b;transition:all .15s;line-height:1.4;}
+.wd-btn.on{background:#2563eb;color:#fff;border-color:#2563eb;}
+.wd-btn:hover{opacity:.8;}
 #toast{position:fixed;bottom:20px;right:20px;background:#1e293b;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(8px);transition:opacity .3s,transform .3s;pointer-events:none;}
 #toast.show{opacity:1;transform:translateY(0);}
-.center-box{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
-.card{background:#fff;border-radius:16px;padding:24px;max-width:420px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.1);}
-.hdr{background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(0,0,0,.2);}
-.day-card{background:#fff;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.07);}
-.ov{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:999;display:flex;align-items:flex-end;justify-content:center;}
-.sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:88vh;overflow-y:auto;padding:20px 20px 32px;}
-.month-nav{background:#fff;padding:11px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+.info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#1e3a8a;line-height:1.6;}
+.info-box ol{margin:8px 0 0 18px;}
+.info-box ol li{margin-bottom:4px;}
+.info-box a{color:#2563eb;}
+.dc.drag-over{outline:2px solid #3b82f6;background:#eff6ff!important;transition:none;}
+.dc.range-sel{outline:2px solid #6366f1;outline-offset:-1px;background:#eef2ff!important;}
+.dc.verlof{background:repeating-linear-gradient(135deg,#fef3c7,#fef3c7 3px,#fffbeb 3px,#fffbeb 9px)!important;}
+.dc.ziek{background:repeating-linear-gradient(135deg,#fee2e2,#fee2e2 3px,#fff1f2 3px,#fff1f2 9px)!important;}
+.dh.feestdag{background:#fde68a!important;color:#92400e!important;}
+.dc.feestdag-cel{background:#fffbeb!important;}
+.conflict-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;vertical-align:middle;margin-left:2px;}
+.wnbadge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:grab;user-select:none;transition:opacity .15s;}
+.wnbadge:hover{opacity:.85;}
+.wnbadge:active{cursor:grabbing;}
 </style>
 </head>
 <body>
@@ -32,51 +90,144 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 const COLORS=['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#6366F1','#84CC16','#EC4899','#14B8A6','#A855F7','#0EA5E9','#22C55E','#FB923C'];
 const MONTHS=['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
 const DNMS=['Zo','Ma','Di','Wo','Do','Vr','Za'];
+const DOW_ORDER=[1,2,3,4,5,6,0];
 const now=new Date();
 const TSTR=fd(now.getFullYear(),now.getMonth(),now.getDate());
-const LS_SYNC='cap_plan_sync_v2';
+function getViewMonday(d){const dt=new Date(d);const day=dt.getDay();dt.setDate(dt.getDate()+(day===0?-6:1-day));return fd(dt.getFullYear(),dt.getMonth(),dt.getDate());}
+function parseDs(ds){const[y,m,d]=ds.split('-').map(Number);return new Date(y,m-1,d);}
+function addDays(d,n){const dt=new Date(d);dt.setDate(dt.getDate()+n);return dt;}
+function fdDate(d){return fd(d.getFullYear(),d.getMonth(),d.getDate());}
+function getWeekNr(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+3-(dt.getDay()+6)%7);const w1=new Date(dt.getFullYear(),0,4);return 1+Math.round(((dt-w1)/86400000-3+(w1.getDay()+6)%7)/7);}
 const LS_DATA='cap_plan_data_v2';
-const LS_AUTH='cap_plan_auth_v1';
+const LS_SYNC='cap_plan_sync_v2';
 
-let SYNC={dbUrl:'',webApiKey:'',enabled:false};
-let _authToken=null,_tokenExpiry=0;
-let DATA={persons:[],wns:[],asgn:{}};
-let AUTH={pid:null};
-let ST={screen:'loading',yr:now.getFullYear(),mo:now.getMonth(),detail:null,loginPid:null,loginErr:''};
+// ── Nederlandse feestdagen ────────────────────────────────────
+function easterDate(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
+  const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+  const i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  const mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;
+  return new Date(y,mo-1,da);
+}
+let _holidayCache={};
+function nlHolidays(y){
+  if(_holidayCache[y])return _holidayCache[y];
+  const E=easterDate(y);
+  const add=(d,n)=>{const dt=new Date(d);dt.setDate(dt.getDate()+n);return dt;};
+  const kd=new Date(y,3,27);if(kd.getDay()===0)kd.setDate(26);
+  const h={
+    [fd(y,0,1)]:'Nieuwjaarsdag',
+    [fdDate(add(E,-2))]:'Goede Vrijdag',
+    [fdDate(E)]:'1e Paasdag',
+    [fdDate(add(E,1))]:'2e Paasdag',
+    [fdDate(kd)]:'Koningsdag',
+    [fd(y,4,5)]:'Bevrijdingsdag',
+    [fdDate(add(E,39))]:'Hemelvaartsdag',
+    [fdDate(add(E,49))]:'1e Pinksterdag',
+    [fdDate(add(E,50))]:'2e Pinksterdag',
+    [fd(y,11,25)]:'1e Kerstdag',
+    [fd(y,11,26)]:'2e Kerstdag',
+  };
+  _holidayCache[y]=h;return h;
+}
+function getHoliday(ds){
+  const y=parseInt(ds);
+  return(nlHolidays(y)||{})[ds]||(nlHolidays(y+1)||{})[ds]||null;
+}
+// Helper: short holiday label
+function holidayShort(name){const m={'Nieuwjaarsdag':'Nieuwjaar','Goede Vrijdag':'Goede Vrij.','1e Paasdag':'Pasen','2e Paasdag':'Pasen 2','Koningsdag':'Koningsdag','Bevrijdingsdag':'Bevrijding','Hemelvaartsdag':'Hemelvaart','1e Pinksterdag':'Pinksteren','2e Pinksterdag':'Pinksteren 2','1e Kerstdag':'Kerst','2e Kerstdag':'Kerst 2'};return m[name]||name;}
+
+// ── Deadline status ───────────────────────────────────────────
+function deadlineStatus(ds){
+  if(!ds)return null;
+  const today=new Date(TSTR);
+  const dl=parseDs(ds);
+  const diff=Math.round((dl-today)/86400000);
+  if(diff<0)return{icon:'🔴',label:'Verlopen',warn:true,bg:'#fee2e2',col:'#dc2626'};
+  if(diff===0)return{icon:'🔴',label:'Vandaag!',warn:true,bg:'#fee2e2',col:'#dc2626'};
+  if(diff<=3)return{icon:'🟠',label:`${diff}d`,warn:true,bg:'#fef3c7',col:'#d97706'};
+  if(diff<=7)return{icon:'🟡',label:`${diff}d`,warn:false,bg:'#fef9c3',col:'#a16207'};
+  if(diff<=14)return{icon:'🟢',label:`${diff}d`,warn:false,bg:'#dcfce7',col:'#15803d'};
+  return{icon:'📅',label:`${diff}d`,warn:false,bg:'#f1f5f9',col:'#64748b'};
+}
+
+let S={
+  tab:'planning',yr:now.getFullYear(),mo:now.getMonth(),
+  persons:[
+    {id:1,name:'Persoon 1',hrs:8,wd:[1,2,3,4,5],pwd:''},
+    {id:2,name:'Persoon 2',hrs:8,wd:[1,2,3,4,5],pwd:''},
+    {id:3,name:'Persoon 3',hrs:8,wd:[1,2,3,4,5],pwd:''},
+  ],
+  wns:[
+    {id:1,label:'WN-001',needed:80,color:COLORS[0],desc:'',imgs:[],pdfUrls:[]},
+    {id:2,label:'WN-002',needed:40,color:COLORS[1],desc:'',imgs:[],pdfUrls:[]},
+  ],
+  asgn:{},leave:{},actual:{},modal:null,dataModal:null,wnEditModal:null,rangeModal:null,recurringModal:null,npid:4,nwid:3,viewStart:getViewMonday(now)
+};
+
+let SYNC={dbUrl:'',webApiKey:'',cloudName:'',uploadPreset:'',enabled:false};
+let syncStatus='off';
+let lastSyncTime=null;
+let pushTimer=null;
+let esConn=null;
+let justPushed=false;
+let dragData=null;
+let rangeState=null;
+let _authToken=null;
+let _tokenExpiry=0;
 
 function fd(y,m,d){return`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
 function dim(y,m){return new Date(y,m+1,0).getDate();}
-function gwn(id){return DATA.wns.find(w=>w.id===id);}
-function gp(id){return DATA.persons.find(p=>p.id===id);}
-function pWorks(p,y,m,d){const dow=new Date(y,m,d).getDay();return(p.wd||[1,2,3,4,5]).includes(dow);}
+function dn(y,m,d){return DNMS[new Date(y,m,d).getDay()];}
+function iswk(y,m,d){const n=new Date(y,m,d).getDay();return n===0||n===6;}
+function gwn(id){return S.wns.find(w=>w.id===id);}
+function gp(id){return S.persons.find(p=>p.id===id);}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function showToast(msg,dur=2500){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+function dot(c,sz=10){return`<span class="dot" style="width:${sz}px;height:${sz}px;background:${c}"></span>`;}
+function pWorks(p,y,m,d){const dow=new Date(y,m,d).getDay();return(p.wd||[1,2,3,4,5]).includes(dow);}
 
-// ── Wachtwoord hashing (PBKDF2 — zelfde als capaciteitsplanning.html) ──
-async function hashPassword(pwd){
-  if(!pwd)return'';
-  const enc=new TextEncoder();
-  const key=await crypto.subtle.importKey('raw',enc.encode(pwd),{name:'PBKDF2'},false,['deriveBits']);
-  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode('cap-planning-salt-v1'),iterations:100000,hash:'SHA-256'},key,256);
-  return Array.from(new Uint8Array(bits)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-function isHashed(s){return typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);}
-async function checkPwd(input,stored){
-  if(!stored)return true;
-  if(isHashed(stored))return(await hashPassword(input))===stored;
-  return input===stored; // legacy: oud plaintext wachtwoord — werkt nog tot admin het reset
+function cap(){
+  return S.wns.map(w=>{
+    let pl=0;
+    for(const[k,wid] of Object.entries(S.asgn)){
+      if(wid!==w.id)continue;
+      const pid=parseInt(k.split('_')[0]);
+      const p=gp(pid);
+      if(p)pl+=p.hrs;
+    }
+    const pct=w.needed>0?Math.min(100,Math.round(pl/w.needed*100)):0;
+    return{...w,pl,pct};
+  });
 }
 
-function saveAuth(){try{localStorage.setItem(LS_AUTH,JSON.stringify(AUTH));}catch(e){}}
-function loadAuth(){try{const r=localStorage.getItem(LS_AUTH);if(r)AUTH={...AUTH,...JSON.parse(r)};}catch(e){}}
-function saveSyncConfig(){try{localStorage.setItem(LS_SYNC,JSON.stringify({dbUrl:SYNC.dbUrl,webApiKey:SYNC.webApiKey,enabled:SYNC.enabled}));}catch(e){}}
-function loadSyncConfig(){try{const r=localStorage.getItem(LS_SYNC);if(r){const p=JSON.parse(r);if(p.dbUrl)SYNC={dbUrl:p.dbUrl,webApiKey:p.webApiKey||'',enabled:!!p.enabled};}}catch(e){}}
-function loadLocal(){try{const r=localStorage.getItem(LS_DATA);if(r){applyData(JSON.parse(r));return true;}return false;}catch(e){return false;}}
+function showToast(msg,dur=2500){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+function saveLocal(){
+  try{localStorage.setItem(LS_DATA,JSON.stringify({persons:S.persons,wns:S.wns,asgn:S.asgn,leave:S.leave||{},actual:S.actual||{},npid:S.npid,nwid:S.nwid,updatedAt:Date.now()}));}catch(e){}
+}
+function loadLocal(){
+  try{const raw=localStorage.getItem(LS_DATA);if(!raw)return false;applyData(JSON.parse(raw));return true;}catch(e){return false;}
+}
+function saveSyncConfig(){try{localStorage.setItem(LS_SYNC,JSON.stringify({dbUrl:SYNC.dbUrl,webApiKey:SYNC.webApiKey,cloudName:SYNC.cloudName||'',uploadPreset:SYNC.uploadPreset||'',enabled:SYNC.enabled}));}catch(e){}}
+function loadSyncConfig(){try{const raw=localStorage.getItem(LS_SYNC);if(raw){const p=JSON.parse(raw);if(p.dbUrl)SYNC={dbUrl:p.dbUrl,webApiKey:p.webApiKey||'',cloudName:p.cloudName||'',uploadPreset:p.uploadPreset||'',enabled:!!p.enabled};}}catch(e){}}
 function applyData(d){
-  if(d.persons)DATA.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||''}));
-  if(d.wns)DATA.wns=d.wns.map(w=>({...w,desc:w.desc||'',imgs:w.imgs||[],pdfUrls:w.pdfUrls||[]}));
-  if(d.asgn)DATA.asgn=d.asgn;
+  if(d.persons)S.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||''}));
+  if(d.wns)S.wns=d.wns.map(w=>({...w,desc:w.desc||'',imgs:w.imgs||[],pdfUrls:w.pdfUrls||[]}));
+  if(d.asgn)S.asgn=d.asgn;
+  if(d.leave)S.leave=d.leave; else if(!S.leave)S.leave={};
+  if(d.actual)S.actual=d.actual; else if(!S.actual)S.actual={};
+  if(d.wns)S.wns=S.wns.map(w=>({deadline:'',  ...w}));
+  if(d.npid)S.npid=d.npid;
+  if(d.nwid)S.nwid=d.nwid;
+  if(S.persons.length)S.npid=Math.max(S.npid,...S.persons.map(p=>p.id+1));
+  if(S.wns.length)S.nwid=Math.max(S.nwid,...S.wns.map(w=>w.id+1));
 }
+function getExportData(){return{persons:S.persons,wns:S.wns,asgn:S.asgn,leave:S.leave||{},actual:S.actual||{},npid:S.npid,nwid:S.nwid,updatedAt:Date.now()};}
+
 function fbBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning.json';}
 
 async function getAuthToken(){
@@ -92,24 +243,75 @@ async function getAuthToken(){
   }catch(e){return null;}
 }
 
-async function pullFromFirebase(){
-  if(!SYNC.enabled||!SYNC.dbUrl)return false;
-  try{
-    const t=await getAuthToken();
-    const url=fbBase()+(t?'?auth='+t:'');
-    const r=await fetch(url);
-    if(!r.ok)return false;
-    const d=await r.json();
-    if(d&&d.persons){applyData(d);try{localStorage.setItem(LS_DATA,JSON.stringify(d));}catch(e){}return true;}
-    return false;
-  }catch(e){return false;}
+async function authUrl(){const t=await getAuthToken();return fbBase()+(t?'?auth='+t:'');}
+
+// ── Cloudinary opslag ────────────────────────────────────────
+function cloudinaryReady(){return !!(SYNC.cloudName&&SYNC.uploadPreset);}
+async function uploadToCloudinary(file,resourceType='image'){
+  if(!cloudinaryReady())throw new Error('Cloudinary niet geconfigureerd');
+  const fd=new FormData();
+  fd.append('file',file);
+  fd.append('upload_preset',SYNC.uploadPreset);
+  const r=await fetch(
+    `https://api.cloudinary.com/v1_1/${SYNC.cloudName}/${resourceType}/upload`,
+    {method:'POST',body:fd}
+  );
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`Status ${r.status}`);}
+  const d=await r.json();
+  return d.secure_url;
+}
+async function compressToBlob(file,maxW=1400,quality=0.85){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const canvas=document.createElement('canvas');
+        const ratio=Math.min(maxW/img.width,maxW/img.height,1);
+        canvas.width=Math.round(img.width*ratio);
+        canvas.height=Math.round(img.height*ratio);
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        canvas.toBlob(b=>resolve(b),'image/jpeg',quality);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
-let esConn=null;
+async function pushToFirebase(silent=false){
+  if(!SYNC.enabled||!SYNC.dbUrl)return;
+  syncStatus='syncing';updateSyncBadge();
+  justPushed=true;setTimeout(()=>{justPushed=false;},6000);
+  try{
+    const url=await authUrl();
+    const r=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(getExportData())});
+    if(r.ok){syncStatus='ok';lastSyncTime=new Date();if(!silent)showToast('☁️ Opgeslagen in Firebase');}
+    else{syncStatus='error';showToast('❌ Firebase fout: '+r.status);}
+  }catch(e){syncStatus='error';showToast('❌ Verbinding mislukt');}
+  updateSyncBadge();
+}
+
+async function pullFromFirebase(){
+  if(!SYNC.enabled||!SYNC.dbUrl)return false;
+  syncStatus='syncing';updateSyncBadge();
+  try{
+    const url=await authUrl();
+    const r=await fetch(url);
+    if(!r.ok){syncStatus='error';updateSyncBadge();return false;}
+    const d=await r.json();
+    if(d&&d.persons){applyData(d);saveLocal();syncStatus='ok';lastSyncTime=new Date();updateSyncBadge();return true;}
+    syncStatus='ok';updateSyncBadge();return false;
+  }catch(e){syncStatus='error';updateSyncBadge();return false;}
+}
+
+function schedulePush(){clearTimeout(pushTimer);pushTimer=setTimeout(()=>pushToFirebase(true),2000);}
+
 async function startRealtimeSync(){
   if(esConn){esConn.close();esConn=null;}
   if(!SYNC.enabled||!SYNC.dbUrl)return;
   const token=await getAuthToken();
+  if(!token&&SYNC.webApiKey){syncStatus='error';updateSyncBadge();return;}
   const url=fbBase()+(token?'?auth='+token:'');
   let firstEvent=true;
   try{
@@ -117,227 +319,764 @@ async function startRealtimeSync(){
     esConn.addEventListener('put',e=>{
       try{
         const msg=JSON.parse(e.data);
-        if(firstEvent){firstEvent=false;return;}
-        if(msg.data&&msg.data.persons){
-          applyData(msg.data);
-          try{localStorage.setItem(LS_DATA,JSON.stringify(msg.data));}catch(er){}
-          render();showToast('🔄 Planning bijgewerkt');
+        if(firstEvent){
+          firstEvent=false;
+          if(msg.data&&msg.data.persons){applyData(msg.data);saveLocal();syncStatus='ok';lastSyncTime=new Date();updateSyncBadge();render();}
+          return;
         }
+        if(justPushed)return;
+        if(msg.data&&msg.data.persons){applyData(msg.data);saveLocal();syncStatus='ok';lastSyncTime=new Date();updateSyncBadge();render();showToast('🔄 Planning bijgewerkt door collega');}
       }catch(err){}
     });
+    esConn.onerror=()=>{syncStatus='error';updateSyncBadge();};
+    esConn.onopen=()=>{syncStatus='ok';updateSyncBadge();};
+    // Herverbind vóór token verloopt
     const refreshIn=Math.max(30000,_tokenExpiry-Date.now()-60000);
     setTimeout(()=>{if(SYNC.enabled)startRealtimeSync();},refreshIn);
-  }catch(e){}
+  }catch(e){syncStatus='error';updateSyncBadge();}
 }
+function updateSyncBadge(){
+  const el=document.getElementById('sync-badge');if(!el)return;
+  const cfg={off:{col:'#94a3b8',label:'Geen sync'},ok:{col:'#22c55e',label:lastSyncTime?`Sync ${lastSyncTime.toLocaleTimeString('nl',{hour:'2-digit',minute:'2-digit'})}`:'Verbonden'},syncing:{col:'#f59e0b',label:'Synchroniseren...'},error:{col:'#ef4444',label:'Sync mislukt'}}[syncStatus];
+  el.innerHTML=`<span class="sync-dot" style="background:${cfg.col}"></span>${cfg.label}`;
+}
+function onChange(){saveLocal();schedulePush();}
 
-function render(){document.getElementById('app').innerHTML=buildApp();}
+function render(){document.getElementById('app').innerHTML=buildApp();updateSyncBadge();}
 
 function buildApp(){
-  if(ST.screen==='loading')return`<div class="center-box"><div style="text-align:center;"><div style="font-size:44px;margin-bottom:14px;">⏳</div><div style="color:#64748b;font-size:14px;">Even laden...</div></div></div>`;
-  if(ST.screen==='setup')return buildSetup();
-  if(ST.screen==='login')return buildLogin();
-  return buildPlanning();
-}
-
-function buildSetup(){
-  return`<div class="center-box"><div class="card">
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:52px;margin-bottom:10px;">📋</div>
-      <h1 style="font-size:22px;font-weight:700;">Mijn Planning</h1>
-      <p style="font-size:13px;color:#64748b;margin-top:8px;line-height:1.5;">Voer de synchronisatiegegevens in.<br>Je krijgt deze van je planner.</p>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:14px;">
-      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Database URL</label><input id="s-url" class="inp" placeholder="https://project-default-rtdb.firebaseio.com"></div>
-      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Web API-sleutel</label><input id="s-key" class="inp" placeholder="AIzaSy..." type="password"></div>
-      <button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;" onclick="saveSetup()">Verbinden →</button>
-    </div>
-  </div></div>`;
-}
-
-function buildLogin(){
-  return`<div class="center-box"><div class="card">
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:52px;margin-bottom:10px;">👷</div>
-      <h1 style="font-size:22px;font-weight:700;">Inloggen</h1>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:14px;">
-      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Wie ben jij?</label>
-        <select id="l-pid" class="inp" onchange="ST.loginPid=parseInt(this.value)||null">
-          <option value="">— Kies je naam —</option>
-          ${DATA.persons.map(p=>`<option value="${p.id}" ${ST.loginPid===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
-        </select>
+  const syncDot=syncStatus==='ok'?'#22c55e':syncStatus==='syncing'?'#f59e0b':syncStatus==='error'?'#ef4444':'#94a3b8';
+  const syncLbl=syncStatus==='off'?'Geen sync':syncStatus==='syncing'?'Synchroniseren...':syncStatus==='error'?'Sync mislukt':lastSyncTime?`Sync ${lastSyncTime.toLocaleTimeString('nl',{hour:'2-digit',minute:'2-digit'})}`:'Verbonden';
+  return`
+  <div class="hdr">
+    <div><h1>📅 Capaciteitsplanning</h1><div class="hdr-sub">Personen · Werknummers · Capaciteit</div></div>
+    <div class="hdr-right">
+      <button class="btn btn-gst btn-sm" onclick="manualRefresh()" title="Laatste versie ophalen uit cloud">🔄 Vernieuwen</button>
+      <div class="sync-badge" id="sync-badge" onclick="setTab('sync')" style="cursor:pointer;" title="Synchronisatie-instellingen">
+        <span class="sync-dot" style="background:${syncDot}"></span>${syncLbl}
       </div>
-      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Wachtwoord</label>
-        <input id="l-pwd" class="inp" type="password" placeholder="Wachtwoord" onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-      ${ST.loginErr?`<div style="background:#fee2e2;color:#dc2626;border-radius:8px;padding:10px 12px;font-size:13px;">${esc(ST.loginErr)}</div>`:''}
-      <button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;" onclick="doLogin()">Inloggen</button>
-      <button class="btn btn-s btn-sm" style="width:100%;" onclick="refreshAndShow()">🔄 Data vernieuwen</button>
-      <button class="btn btn-s btn-sm" style="width:100%;color:#94a3b8;font-size:11px;" onclick="resetSetup()">⚙️ Verbinding wijzigen</button>
     </div>
-  </div></div>`;
+  </div>
+  <div class="tabs">
+    ${['planning','capaciteit','instellingen','sync'].map(t=>`<button class="tab ${S.tab===t?'active':''}" onclick="setTab('${t}')">${{planning:'📋 Planning',capaciteit:'📊 Capaciteit',instellingen:'⚙️ Instellingen',sync:'☁️ Synchronisatie'}[t]}</button>`).join('')}
+  </div>
+  <div class="content">
+    ${S.tab==='planning'?bPlanning():S.tab==='capaciteit'?bCap():S.tab==='instellingen'?bInst():bSync()}
+  </div>
+  ${S.modal?bModal():''}
+  ${S.dataModal?bDataModal():''}
+  ${S.wnEditModal?bWnEditModal():''}
+  ${S.rangeModal?bRangeModal():''}
+  ${S.recurringModal?bRecurringModal():''}`;
 }
 
-function buildPlanning(){
-  const p=gp(AUTH.pid);
-  if(!p){logout();return buildLogin();}
-  const days=dim(ST.yr,ST.mo);
-  const arr=Array.from({length:days},(_,i)=>i+1);
-  const isThisMonth=ST.yr===now.getFullYear()&&ST.mo===now.getMonth();
-  const todayWid=isThisMonth?DATA.asgn[`${p.id}_${TSTR}`]:undefined;
-  const todayWn=todayWid?gwn(todayWid):null;
+function bPlanning(){
+  const startDate=parseDs(S.viewStart);
+  const days=Array.from({length:42},(_,i)=>addDays(startDate,i));
+  const endDate=days[41];
+  const rangeLabel=`${startDate.toLocaleDateString('nl',{day:'numeric',month:'short'})} – ${endDate.toLocaleDateString('nl',{day:'numeric',month:'short',year:'numeric'})}`;
+  // Week groups for header
+  const wGroups=Array.from({length:6},(_,w)=>({nr:getWeekNr(days[w*7]),firstDay:days[w*7]}));
 
   return`<div>
-    <div class="hdr">
-      <div>
-        <div style="font-size:17px;font-weight:700;">📋 Mijn Planning</div>
-        <div style="font-size:12px;opacity:.8;margin-top:2px;">${esc(p.name)}</div>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;" onclick="refreshAndShow()" title="Vernieuwen">🔄</button>
-        <button style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;" onclick="logout()">Uitloggen</button>
+    <div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:12px 16px;">
+      <button class="btn btn-s btn-sm" onclick="prevWeek()">◀ Week</button>
+      <span style="font-size:15px;font-weight:700;min-width:210px;text-align:center;">${rangeLabel}</span>
+      <button class="btn btn-s btn-sm" onclick="nextWeek()">Week ▶</button>
+      <button class="btn btn-s btn-sm" onclick="goToday()">Vandaag</button>
+      <div style="margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-s btn-sm" onclick="openRecurringModal()" title="Wekelijks herhalend inplannen">🔁 Herhalen</button>
+        <span style="font-size:11px;color:#94a3b8;margin-left:4px;margin-right:2px;">Sleep:</span>
+        ${S.wns.map(w=>{const dl=w.deadline?deadlineStatus(w.deadline):null;return`<span class="wnbadge" draggable="true" ondragstart="onWnDragStart(${w.id},event)" title="${esc(w.label)}${dl?' · deadline '+w.deadline:''}" style="background:${w.color}18;color:${w.color};border:1px solid ${w.color}55;">${dot(w.color,9)}${esc(w.label)}${dl&&dl.warn?`<span style="font-size:10px;margin-left:2px;">${dl.icon}</span>`:''}</span>`;}).join('')}
       </div>
     </div>
+    <div class="card" style="padding:0;overflow:hidden;"><div class="gw">
+      <table class="pg" style="border-collapse:collapse;"><thead>
+        <tr>
+          <th class="nh" rowspan="2" style="vertical-align:middle;min-width:130px;">Persoon</th>
+          ${wGroups.map(wg=>`<th colspan="7" style="text-align:left;padding:3px 6px;font-size:11px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:2px solid #e2e8f0;white-space:nowrap;">W${wg.nr} <span style="font-weight:400;color:#94a3b8;">${wg.firstDay.toLocaleDateString('nl',{month:'short'})}</span></th>`).join('')}
+        </tr>
+        <tr>
+          ${days.map(d=>{const ds=fdDate(d);const dow=d.getDay();const isWknd=dow===0||dow===6;const isToday=ds===TSTR;const hol=getHoliday(ds);return`<th class="dh${isWknd?' wknd':''}${isToday?' td-col':''}${hol?' feestdag':''}" title="${hol||''}" style="width:40px;${isToday?'background:#dbeafe;font-weight:700;color:#1d4ed8;':''}"><div style="font-size:9px;color:${isWknd?'#cbd5e1':hol?'#92400e':'#94a3b8'};">${DNMS[dow]}</div><div style="font-size:11px;">${d.getDate()}</div>${hol?`<div style="font-size:7px;color:#92400e;line-height:1;margin-top:1px;overflow:hidden;max-width:38px;">${holidayShort(hol)}</div>`:''}</th>`;}).join('')}
+        </tr>
+      </thead><tbody>
+        ${S.persons.map((p,pi)=>{
+          const rowBg=pi%2?'#fafafa':'#fff';
+          return`<tr style="background:${rowBg};">
+            <td class="nc" style="background:${rowBg};height:56px;"><div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.name)}</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">${p.hrs}u/dag</div></td>
+            ${days.map((d,di)=>{
+              const ds=fdDate(d);
+              const wid=S.asgn[`${p.id}_${ds}`];
+              const wn=wid!==undefined?gwn(wid):null;
+              const works=pWorks(p,d.getFullYear(),d.getMonth(),d.getDate());
+              const isToday=ds===TSTR;
+              const leaveVal=(S.leave||{})[`${p.id}_${ds}`];
+              const leaveClass=leaveVal==='V'?' verlof':leaveVal==='Z'?' ziek':'';
+              const leaveIcon=leaveVal?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;pointer-events:none;opacity:.85;">${leaveVal==='V'?'🌴':'🤒'}</div>`:'';
+              const hol=getHoliday(ds);
+              const holClass=hol&&!leaveVal?' feestdag-cel':'';
+              const conflict=leaveVal&&wid!==undefined;
+              const dnd=works?`ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="onDrop(${p.id},'${ds}',event);this.classList.remove('drag-over')"${wn?` draggable="true" ondragstart="onCellDragStart(${p.id},'${ds}',event)"`:''}`:'';
+              if(!works)return`<td class="dc off"></td>`;
+              if(!wn)return`<td class="dc${leaveClass}${holClass}" data-pid="${p.id}" data-ds="${ds}" style="${isToday?'background:#eff6ff;':''}" onmousedown="cellMouseDown(${p.id},'${ds}',event)" onmouseenter="cellMouseEnter(${p.id},'${ds}')" ${dnd}>${leaveIcon}</td>`;
+              // Determine run boundaries
+              const prevWid=S.asgn[`${p.id}_${fdDate(addDays(d,-1))}`];
+              const nextWid=S.asgn[`${p.id}_${fdDate(addDays(d,1))}`];
+              const isStart=prevWid!==wid;
+              const isEnd=nextWid!==wid;
+              const showLabel=isStart||di===0;
+              const l=isStart?'4px':'0';const r=isEnd?'4px':'0';
+              const br=isStart&&isEnd?'5px':isStart?'5px 0 0 5px':isEnd?'0 5px 5px 0':'0';
+              const bl=isStart?`border-left:3px solid ${wn.color};`:'';
+              const br2=isEnd?`border-right:2px solid ${wn.color}55;`:'';
+              return`<td class="dc${leaveClass}${holClass}" data-pid="${p.id}" data-ds="${ds}" onmousedown="cellMouseDown(${p.id},'${ds}',event)" onmouseenter="cellMouseEnter(${p.id},'${ds}')" ${dnd} style="${isToday?'background:#eff6ff;':''}">
+                <div style="position:absolute;top:4px;bottom:4px;left:${l};right:${r};background:${wn.color}22;${bl}${br2}border-radius:${br};display:flex;align-items:center;overflow:hidden;padding:0 5px;pointer-events:none;">
+                  ${showLabel?`<span style="font-size:9px;font-weight:800;color:${wn.color};white-space:nowrap;letter-spacing:.01em;">${esc(wn.label)}</span>`:''}
+                </div>${leaveIcon}${conflict?`<div style="position:absolute;top:2px;right:2px;font-size:9px;pointer-events:none;" title="Verlof én ingepland">⚠️</div>`:''}
+              </td>`;
+            }).join('')}
+          </tr>`;
+        }).join('')}
+        <tr class="brow">
+          <td class="nc bnc" style="background:#f8fafc;">Bezetting</td>
+          ${days.map(d=>{
+            const ds=fdDate(d);const dow=d.getDay();
+            const workers=S.persons.filter(p=>(p.wd||[1,2,3,4,5]).includes(dow));
+            if(!workers.length)return`<td style="background:#f8fafc;border-color:#f1f5f9;"></td>`;
+            const cnt=workers.filter(p=>S.asgn[`${p.id}_${ds}`]!==undefined).length;
+            if(!cnt)return`<td style="background:#f8fafc;"></td>`;
+            const pct=cnt/workers.length;
+            const bg=pct>=1?'#dcfce7':pct>=.5?'#fef9c3':'#fee2e2';
+            const col=pct>=1?'#15803d':pct>=.5?'#a16207':'#dc2626';
+            return`<td style="background:${bg};text-align:center;font-size:9px;font-weight:700;color:${col};vertical-align:middle;">${cnt}/${workers.length}</td>`;
+          }).join('')}
+        </tr>
+        ${!S.persons.length?`<tr><td colspan="43" style="text-align:center;padding:28px;color:#94a3b8;font-size:13px;">Geen personen. Voeg ze toe via ⚙️ Instellingen.</td></tr>`:''}
+      </tbody></table>
+    </div></div>
+    <div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#64748b;padding:0 4px;">
+      <span><span style="display:inline-block;width:12px;height:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Niet-werkdag</span>
+      <span>Bezetting: <span style="color:#15803d;font-weight:600;">groen</span>=vol · <span style="color:#a16207;font-weight:600;">geel</span>=half · <span style="color:#dc2626;font-weight:600;">rood</span>=laag</span>
+      <span><span style="font-size:12px;">🌴</span>=Verlof · <span style="font-size:12px;">🤒</span>=Ziek · <span style="background:#fde68a;padding:0 3px;border-radius:2px;">geel header</span>=Feestdag</span>
+      <span>⚠️ in cel = verlof én ingepland</span>
+      <span>💡 Klik of klik+sleep voor toewijzen · Sleep een WN-badge of cel · 🔁 Herhalen voor wekelijkse patronen</span>
+    </div>
+  </div>`;
+}
 
-    ${isThisMonth?`<div style="background:linear-gradient(to right,#eff6ff,#f0fdf4);padding:14px 16px;border-bottom:1px solid #e2e8f0;">
-      <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:8px;">VANDAAG — ${new Date().toLocaleDateString('nl',{weekday:'long',day:'numeric',month:'long'}).toUpperCase()}</div>
-      ${todayWn?`<div class="day-card" style="border-left:4px solid ${todayWn.color};cursor:pointer;" onclick="openDetail(${todayWn.id},'${TSTR}')">
-        <div style="flex:1;">
-          <div style="font-weight:700;font-size:15px;color:${todayWn.color};">${esc(todayWn.label)}</div>
-          <div style="font-size:12px;color:#64748b;margin-top:3px;">${todayWn.desc?esc(todayWn.desc.substring(0,70))+(todayWn.desc.length>70?'...':''):'Tik voor details →'}</div>
+function bCap(){
+  const data=cap();
+  return`<div>
+    <h2 style="font-size:17px;font-weight:700;margin-bottom:14px;">Capaciteitsoverzicht</h2>
+    ${!data.length?'<p style="color:#94a3b8;">Geen werknummers aangemaakt.</p>':''}
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+      ${data.map(w=>{
+        const dl=w.deadline?deadlineStatus(w.deadline):null;
+        const actHrs=Object.entries(S.actual||{}).filter(([k,v])=>{const pid=parseInt(k.split('_')[0]);const p=gp(pid);if(!p)return false;const ds=k.split('_').slice(1).join('_');return S.asgn[`${pid}_${ds}`]===w.id;}).reduce((sum,[,v])=>sum+(v||0),0);
+        const planHrs=w.pl;
+        const hasActual=actHrs>0;
+        return`<div class="card" style="border-left:4px solid ${w.color};">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${dot(w.color,12)}<span style="font-weight:700;font-size:15px;">${esc(w.label)}</span>${w.pct>=100?`<span class="badge" style="background:#dcfce7;color:#15803d;">✓ Volledig ingepland</span>`:''}${dl?`<span class="badge" style="background:${dl.bg};color:${dl.col};">${dl.icon} ${dl.label}</span>`:''}</div>
+          <div style="text-align:right;"><div style="font-weight:600;font-size:14px;">${w.pl}u / ${w.needed}u ingepland</div>${hasActual?`<div style="font-size:11px;color:#7c3aed;font-weight:600;">⏱ ${actHrs}u werkelijk</div>`:''}${w.deadline?`<div style="font-size:11px;color:#64748b;">Deadline: ${w.deadline}</div>`:''}</div>
         </div>
-        <div style="font-size:20px;color:#94a3b8;">›</div>
-      </div>`:`<div style="font-size:13px;color:#94a3b8;padding:2px 0;">${pWorks(p,now.getFullYear(),now.getMonth(),now.getDate())?'Geen werkorder toegewezen voor vandaag':'Vandaag is een vrije dag'}</div>`}
-    </div>`:''}
-
-    <div class="month-nav">
-      <button class="btn btn-s btn-sm" onclick="prevMo()">◀</button>
-      <span style="font-size:15px;font-weight:700;flex:1;text-align:center;">${MONTHS[ST.mo]} ${ST.yr}</span>
-      <button class="btn btn-s btn-sm" onclick="nextMo()">▶</button>
-      <button class="btn btn-s btn-sm" onclick="goToday()">Nu</button>
+        <div class="ptrack"><div class="pfill" style="width:${w.pct}%;background:${w.color};"></div></div>
+        ${hasActual?`<div style="margin-top:5px;"><div style="background:#e2e8f0;border-radius:999px;height:8px;overflow:hidden;"><div style="height:100%;border-radius:999px;background:#7c3aed;width:${Math.min(100,Math.round(actHrs/w.needed*100))}%;transition:width .4s;"></div></div><div style="margin-top:3px;font-size:11px;color:#7c3aed;">⏱ ${actHrs}u werkelijk (${Math.min(100,Math.round(actHrs/w.needed*100))}%)</div></div>`:''}
+        ${w.pct<100?`<div style="margin-top:4px;font-size:11px;color:#64748b;">Nog ${w.needed-w.pl}u te plannen</div>`:''}
+      </div>`;}).join('')}
     </div>
-
-    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px;padding-bottom:24px;">
-      ${arr.map(d=>{
-        const ds=fd(ST.yr,ST.mo,d);
-        const works=pWorks(p,ST.yr,ST.mo,d);
-        const wid=works?DATA.asgn[`${p.id}_${ds}`]:undefined;
-        const wn=wid?gwn(wid):null;
-        const isToday=ds===TSTR;
-        const dow=new Date(ST.yr,ST.mo,d).getDay();
-        const isWknd=dow===0||dow===6;
-        return`<div class="day-card" style="border-left:4px solid ${isToday?'#3b82f6':wn?wn.color:works?'#e2e8f0':'#f1f5f9'};opacity:${works?1:.45};${wn?'cursor:pointer;':''}" ${wn?`onclick="openDetail(${wn.id},'${ds}')"`:''}">
-          <div style="min-width:44px;text-align:center;">
-            <div style="font-size:10px;font-weight:700;color:${isToday?'#2563eb':isWknd?'#94a3b8':'#64748b'};">${DNMS[dow]}</div>
-            <div style="font-size:22px;font-weight:700;color:${isToday?'#2563eb':'#1e293b'};line-height:1.15;">${d}</div>
-          </div>
-          <div style="flex:1;min-width:0;">
-            ${wn
-              ?`<div style="font-weight:600;font-size:13px;color:${wn.color};">${esc(wn.label)}</div><div style="font-size:11px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${wn.desc?esc(wn.desc.substring(0,50))+(wn.desc.length>50?'...':''):'Tik voor details'}</div>`
-              :works
-                ?`<div style="font-size:12px;color:#94a3b8;">Geen toewijzing</div>`
-                :`<div style="font-size:12px;color:#cbd5e1;">Vrij</div>`
-            }
-          </div>
-          ${wn?`<div style="font-size:20px;color:#cbd5e1;flex-shrink:0;">›</div>`:''}
-        </div>`;
-      }).join('')}
-    </div>
-
-    ${ST.detail?buildDetailModal():''}
+    ${data.length?`<div class="card"><h3 style="font-size:14px;font-weight:600;margin-bottom:14px;">Samenvatting</h3><div class="smgrid">
+      <div class="smcard" style="background:#eff6ff;"><div class="smnum" style="color:#1d4ed8;">${data.filter(w=>w.pct>=100).length}</div><div class="smlbl" style="color:#1d4ed8;">Volledig ingepland</div></div>
+      <div class="smcard" style="background:#fefce8;"><div class="smnum" style="color:#a16207;">${data.filter(w=>w.pct>0&&w.pct<100).length}</div><div class="smlbl" style="color:#a16207;">Gedeeltelijk</div></div>
+      <div class="smcard" style="background:#fff1f2;"><div class="smnum" style="color:#be123c;">${data.filter(w=>w.pct===0).length}</div><div class="smlbl" style="color:#be123c;">Nog niet gestart</div></div>
+    </div></div>`:''}
   </div>`;
 }
 
-function buildDetailModal(){
-  const {wnId,ds}=ST.detail;
-  const wn=gwn(wnId);
-  if(!wn)return'';
-  const hasContent=wn.desc||(wn.imgs&&wn.imgs.length)||(wn.pdfUrls&&wn.pdfUrls.length);
-  return`<div class="ov" onclick="ST.detail=null;render()">
-    <div class="sheet" onclick="event.stopPropagation()">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${wn.color};flex-shrink:0;"></span>
-        <h2 style="font-size:19px;font-weight:700;flex:1;">${esc(wn.label)}</h2>
-        <button onclick="ST.detail=null;render()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1;padding:0 2px;">✕</button>
+function bInst(){
+  return`<div class="sgrid">
+    <div class="card">
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">👤 Personen (${S.persons.length}/15)</h2>
+      ${S.persons.length<15?`<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+        <input id="pn" class="inp" placeholder="Naam" style="flex:1;min-width:100px;" onkeydown="if(event.key==='Enter')addP()">
+        <input id="ph" class="inp" type="number" min="1" max="24" value="8" style="width:62px;">
+        <span style="align-self:center;font-size:11px;color:#64748b;">u/dag</span>
+        <button class="btn btn-p" onclick="addP()">+ Voeg toe</button>
+      </div>`:`<p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Maximum van 15 personen bereikt.</p>`}
+      <div>${S.persons.map(p=>{const wd=p.wd||[1,2,3,4,5];return`<div class="pitem">
+        <div class="prow1">
+          <div style="flex:1;min-width:0;"><input class="inp-sm" style="width:100%;border:none;background:transparent;font-weight:600;font-size:13px;" value="${esc(p.name)}" onchange="upP(${p.id},'name',this.value)"></div>
+          <input class="inp-sm" type="number" min="1" max="24" value="${p.hrs}" style="width:40px;text-align:center;" onchange="upP(${p.id},'hrs',+this.value)">
+          <span style="font-size:10px;color:#94a3b8;white-space:nowrap;">u/dag</span>
+          <button onclick="rmP(${p.id})" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:15px;padding:0 3px;line-height:1;">✕</button>
+        </div>
+        <div class="prow2">
+          <span style="font-size:10px;color:#64748b;margin-right:2px;">Werkdagen:</span>
+          ${DOW_ORDER.map(dow=>`<button class="wd-btn ${wd.includes(dow)?'on':''}" onclick="toggleWd(${p.id},${dow})">${DNMS[dow]}</button>`).join('')}
+          <span style="font-size:10px;color:#94a3b8;margin-left:4px;">${wd.length*p.hrs}u/week</span>
+        </div>
+        <div class="prow2" style="margin-top:6px;">
+          <span style="font-size:10px;color:#64748b;margin-right:4px;">🔑</span>
+          <input class="inp-sm" type="password" placeholder="${p.pwd?(isHashed(p.pwd)?'Beveiligd — typ om te wijzigen':'Oud wachtwoord — typ om te beveiligen'):'Geen wachtwoord'}" style="flex:1;max-width:180px;" onchange="if(this.value.trim())setPwd(${p.id},this.value.trim())">
+          ${p.pwd?`<button onclick="setPwd(${p.id},'')" title="Wachtwoord verwijderen" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:11px;white-space:nowrap;padding:0 2px;">✕ Wissen</button><span style="font-size:10px;color:${isHashed(p.pwd)?'#15803d':'#f59e0b'};white-space:nowrap;">${isHashed(p.pwd)?'🔒 Versleuteld':'⚠️ Niet versleuteld'}</span>`:'<span style="font-size:10px;color:#94a3b8;">Vrij toegankelijk</span>'}
+        </div>
+      </div>`;}).join('')}${!S.persons.length?'<p style="text-align:center;color:#94a3b8;padding:14px;font-size:13px;">Nog geen personen.</p>':''}</div>
+    </div>
+    <div class="card">
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">🔢 Werknummers (${S.wns.length})</h2>
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+        <input id="wl" class="inp" placeholder="Werknummer" style="flex:1;min-width:100px;" onkeydown="if(event.key==='Enter')addW()">
+        <input id="wh" class="inp" type="number" min="1" value="40" style="width:68px;">
+        <span style="align-self:center;font-size:11px;color:#64748b;">u nodig</span>
+        <button class="btn btn-p" onclick="addW()">+ Voeg toe</button>
       </div>
-      <div style="font-size:12px;color:#94a3b8;margin-bottom:20px;">📅 ${ds}</div>
-
-      ${wn.desc?`<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:16px;">
-        <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:8px;">OMSCHRIJVING</div>
-        <div style="font-size:14px;color:#1e293b;line-height:1.65;white-space:pre-wrap;">${esc(wn.desc)}</div>
-      </div>`:''}
-
-      ${wn.imgs&&wn.imgs.length?`<div style="margin-bottom:16px;">
-        <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:10px;">TEKENINGEN / AFBEELDINGEN</div>
-        ${wn.imgs.map(img=>{const src=img.url||img.data||'';return`<div style="margin-bottom:12px;">
-          <div style="font-size:11px;color:#94a3b8;margin-bottom:5px;">📎 ${esc(img.name)}</div>
-          ${src?`<img src="${esc(src)}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;" alt="${esc(img.name)}">`:'<div style="padding:10px;color:#94a3b8;font-size:12px;">Afbeelding niet beschikbaar</div>'}
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        ${S.wns.map(w=>{const dl=w.deadline?deadlineStatus(w.deadline):null;return`<div style="display:flex;align-items:center;gap:7px;background:#f8fafc;border-radius:8px;padding:8px 10px;border-left:3px solid ${w.color};flex-wrap:wrap;">
+          ${dot(w.color,10)}
+          <div style="flex:1;min-width:80px;"><input class="inp-sm" style="width:100%;border:none;background:transparent;font-weight:500;font-size:13px;" value="${esc(w.label)}" onchange="upW(${w.id},'label',this.value)"></div>
+          <input class="inp-sm" type="number" min="1" value="${w.needed}" style="width:56px;text-align:center;" onchange="upW(${w.id},'needed',+this.value)">
+          <span style="font-size:10px;color:#94a3b8;">u</span>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:10px;color:#64748b;">Deadline:</span>
+            <input class="inp-sm" type="date" value="${esc(w.deadline||'')}" style="width:120px;" onchange="upW(${w.id},'deadline',this.value)" title="Einddatum werkorder">
+            ${dl?`<span title="${dl.label}" style="font-size:13px;">${dl.icon}</span>`:''}
+          </div>
+          <button onclick="openWnEdit(${w.id})" title="Details bewerken" style="background:#eff6ff;border:1px solid #bfdbfe;color:#2563eb;border-radius:6px;cursor:pointer;font-size:11px;padding:3px 8px;font-weight:600;white-space:nowrap;">✏️ Details</button>
+          <button onclick="rmW(${w.id})" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:15px;padding:0 3px;line-height:1;">✕</button>
         </div>`;}).join('')}
-      </div>`:''}
+        ${!S.wns.length?'<p style="text-align:center;color:#94a3b8;padding:14px;font-size:13px;">Nog geen werknummers.</p>':''}
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:16px;text-align:center;"><button class="btn btn-d btn-sm" onclick="rstAll()">🗑 Alle planningsdata wissen</button></div>`;
+}
 
-      ${wn.pdfUrls&&wn.pdfUrls.length?`<div style="margin-bottom:16px;">
-        <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:10px;">DOCUMENTEN</div>
-        ${wn.pdfUrls.filter(pdf=>pdf.url).map(pdf=>`<a href="${esc(pdf.url)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:13px 14px;text-decoration:none;color:#1d4ed8;margin-bottom:6px;">
-          <span style="font-size:22px;">📄</span>
-          <span style="font-size:13px;font-weight:500;">${esc(pdf.name||pdf.url)}</span>
-        </a>`).join('')}
-      </div>`:''}
-
-      ${!hasContent?`<div style="text-align:center;padding:28px;color:#94a3b8;font-size:14px;">📭 Geen aanvullende informatie beschikbaar</div>`:''}
-
-      <button style="width:100%;background:#f1f5f9;border:none;border-radius:10px;padding:14px;font-size:14px;cursor:pointer;font-weight:500;color:#374151;margin-top:4px;" onclick="ST.detail=null;render()">Sluiten</button>
+function bSync(){
+  const configured=SYNC.dbUrl&&SYNC.enabled;
+  return`<div style="max-width:640px;">
+    <h2 style="font-size:17px;font-weight:700;margin-bottom:14px;">☁️ Synchronisatie — Firebase</h2>
+    <div class="info-box">
+      <strong>Eenmalige setup (~5 minuten, gratis):</strong>
+      <ol style="margin-top:10px;">
+        <li>Ga naar <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> → maak een project aan</li>
+        <li>Klik op <strong>Realtime Database</strong> → <strong>Database aanmaken</strong> → kies regio → <strong>Testmodus</strong></li>
+        <li>Kopieer de <strong>Database URL</strong> bovenaan (bijv. <code>https://project-default-rtdb.firebaseio.com</code>)</li>
+        <li>Ga naar ⚙️ <strong>Project-instellingen → Algemeen</strong> → kopieer de <strong>Web API-sleutel</strong></li>
+        <li>Ga naar <strong>Realtime Database → Regels</strong> en vervang door:<br>
+          <code style="display:block;margin-top:5px;padding:6px 8px;background:#e0f2fe;border-radius:4px;font-size:11px;">{"rules":{".read":"auth != null",".write":"auth != null"}}</code>
+          Klik <strong>Publiceren</strong></li>
+        <li>Vul de Database URL en Web API-sleutel hieronder in → klik <strong>Verbinden</strong></li>
+      </ol>
+      <div style="margin-top:10px;padding:8px 10px;background:#f0fdf4;border-radius:6px;font-size:12px;color:#14532d;">
+        🔒 <strong>Beveiligd:</strong> de database is alleen toegankelijk met jouw Web API-sleutel. ⚡ Real-time: wijzigingen zichtbaar binnen 1–2 seconden.
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;">Verbindingsgegevens</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Database URL</label>
+          <input id="cfg-url" class="inp" style="width:100%;" placeholder="https://jouw-project-default-rtdb.firebaseio.com" value="${esc(SYNC.dbUrl)}">
+        </div>
+        <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Web API-sleutel <span style="font-weight:400;color:#94a3b8;">(Project-instellingen → Algemeen)</span></label>
+          <input id="cfg-apikey" class="inp" style="width:100%;" placeholder="AIzaSy..." type="password" value="${esc(SYNC.webApiKey)}">
+        </div>
+        <div style="border-top:1px solid #e2e8f0;margin-top:6px;padding-top:14px;">
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">🖼 Cloudinary — afbeeldingen &amp; documenten <span style="font-weight:400;color:#94a3b8;">(optioneel, gratis 25GB)</span></div>
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400e;margin-bottom:10px;line-height:1.6;">
+            <strong>Setup:</strong> maak een gratis account op <strong>cloudinary.com</strong> → kopieer je <strong>Cloud name</strong> van het dashboard → ga naar <em>Settings → Upload → Upload presets → Add preset</em>, zet modus op <strong>Unsigned</strong>, sla op.
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;"><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Cloud name</label>
+              <input id="cfg-cloud" class="inp" placeholder="jouw-cloud-naam" value="${esc(SYNC.cloudName||'')}">
+            </div>
+            <div style="flex:1;min-width:160px;"><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Upload preset</label>
+              <input id="cfg-preset" class="inp" placeholder="ml_default" value="${esc(SYNC.uploadPreset||'')}">
+            </div>
+          </div>
+          ${cloudinaryReady()?`<div style="margin-top:8px;font-size:12px;color:#15803d;font-weight:500;">✅ Cloudinary actief — uploads gaan naar <strong>${esc(SYNC.cloudName)}</strong></div>`:`<div style="margin-top:8px;font-size:11px;color:#94a3b8;">Niet ingesteld — afbeeldingen worden als base64 opgeslagen (minder schaalbaar).</div>`}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+          <button class="btn btn-p" onclick="connectSync()">🔗 Verbinden</button>
+          ${configured?`<button class="btn btn-g" onclick="manualPush()">⬆ Nu uploaden</button>`:''}
+          ${configured?`<button class="btn btn-d btn-sm" onclick="disconnectSync()">Verbinding verwijderen</button>`:''}
+        </div>
+      </div>
+    </div>
+    ${configured?`<div class="card" style="border-left:4px solid ${syncStatus==='ok'?'#22c55e':syncStatus==='error'?'#ef4444':'#f59e0b'};">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:20px;">${syncStatus==='ok'?'✅':syncStatus==='error'?'❌':'🔄'}</span>
+        <div><div style="font-weight:600;font-size:14px;">${syncStatus==='ok'?'Verbonden':syncStatus==='error'?'Verbindingsfout':'Bezig...'}</div>
+        <div style="font-size:12px;color:#64748b;">${lastSyncTime?'Laatste sync: '+lastSyncTime.toLocaleString('nl'):'Nog niet gesynchroniseerd'} · Automatisch elke 10 minuten</div></div>
+      </div>
+    </div>`:''}
+    <div class="card" style="margin-top:16px;border-left:4px solid #8b5cf6;">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:10px;">👷 Werknemersportaal</h3>
+      <p style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:12px;">
+        Medewerkers kunnen inloggen via het bestand <strong>werknemer.html</strong> (in dezelfde map als dit bestand).
+        Ze zien hun eigen planning en de details van werkorders — inclusief omschrijvingen, tekeningen en documenten.
+      </p>
+      <div class="info-box" style="margin-bottom:0;">
+        <strong>Zo stel je het in voor een werknemer:</strong>
+        <ol>
+          <li>Stuur <code>werknemer.html</code> naar de medewerker (of zet het op een gedeelde map)</li>
+          <li>De medewerker opent het bestand en voert dezelfde <strong>Firebase Database URL</strong> in als hierboven</li>
+          <li>Ze kiezen hun naam en loggen in met het wachtwoord dat je instelt bij ⚙️ Instellingen → Personen</li>
+          <li>Ze zien hun persoonlijke maandplanning en kunnen op een werkorder tikken voor details</li>
+        </ol>
+      </div>
     </div>
   </div>`;
 }
 
-function saveSetup(){
-  const dbUrl=document.getElementById('s-url')?.value?.trim();
-  const webApiKey=document.getElementById('s-key')?.value?.trim();
-  if(!dbUrl||!webApiKey){showToast('⚠️ Vul beide velden in');return;}
-  SYNC={dbUrl,webApiKey,enabled:true};_authToken=null;saveSyncConfig();
-  ST.screen='loading';render();
-  pullFromFirebase().then(ok=>{
-    if(!ok){showToast('❌ Verbinding mislukt. Controleer de URL en Firebase-regels.');SYNC={dbUrl:'',enabled:false};saveSyncConfig();ST.screen='setup';render();}
-    else{showToast('✅ Verbonden!');startRealtimeSync();ST.screen='login';render();}
-  });
+function bModal(){
+  const m=S.modal,p=gp(m.pid),cur=S.asgn[`${m.pid}_${m.ds}`];
+  const curLeave=(S.leave||{})[`${m.pid}_${m.ds}`];
+  return`<div class="ov" onclick="closeMod()"><div class="modal" onclick="event.stopPropagation()">
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:3px;">Dag toewijzen</h3>
+    <p style="font-size:12px;color:#64748b;margin-bottom:16px;">${esc(p?.name||'')} — ${m.ds}</p>
+    ${curLeave?`<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;color:#713f12;display:flex;align-items:center;gap:7px;">⚠️ <span><strong>${esc(p?.name||'')}</strong> heeft ${curLeave==='V'?'verlof':'ziekmeld'} op deze dag. Je kunt nog steeds een werknummer toewijzen.</span></div>`:''}
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:2px;">WERKNUMMER</div>
+      ${S.wns.map(w=>`<button class="wnbtn" onclick="asgnW(${w.id})" style="border:2px solid ${cur===w.id?w.color:'#e2e8f0'};background:${cur===w.id?w.color+'18':'#fff'};">${dot(w.color,13)}<div style="flex:1;"><div style="font-weight:600;font-size:13px;">${esc(w.label)}</div><div style="font-size:11px;color:#64748b;">${w.needed}u benodigd</div></div>${cur===w.id?`<span style="color:${w.color};font-size:15px;">✓</span>`:''}</button>`).join('')}
+      ${cur!==undefined?`<button onclick="asgnW(null)" style="padding:9px 14px;border:1px dashed #fca5a5;border-radius:10px;background:#fff1f2;color:#dc2626;cursor:pointer;font-size:12px;font-weight:500;width:100%;">✕ Verwijder werknummer</button>`:''}
+      ${!S.wns.length?'<p style="text-align:center;color:#94a3b8;font-size:12px;">Maak eerst werknummers aan in ⚙️ Instellingen.</p>':''}
+    </div>
+    <div style="border-top:1px solid #e2e8f0;margin:12px 0;padding-top:12px;">
+      <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:8px;">VERLOF / AFWEZIGHEID</div>
+      <div style="display:flex;gap:7px;">
+        <button onclick="setLeave(${m.pid},'${m.ds}','V')" style="flex:1;padding:9px;border:2px solid ${curLeave==='V'?'#f59e0b':'#e2e8f0'};border-radius:10px;background:${curLeave==='V'?'#fffbeb':'#fff'};color:#92400e;cursor:pointer;font-size:12px;font-weight:600;">🌴 Verlof${curLeave==='V'?' ✓':''}</button>
+        <button onclick="setLeave(${m.pid},'${m.ds}','Z')" style="flex:1;padding:9px;border:2px solid ${curLeave==='Z'?'#ef4444':'#e2e8f0'};border-radius:10px;background:${curLeave==='Z'?'#fff1f2':'#fff'};color:#dc2626;cursor:pointer;font-size:12px;font-weight:600;">🤒 Ziek${curLeave==='Z'?' ✓':''}</button>
+      </div>
+      ${curLeave?`<button onclick="clearLeave(${m.pid},'${m.ds}')" style="margin-top:7px;padding:8px;border:1px dashed #fca5a5;border-radius:10px;background:#fff1f2;color:#dc2626;cursor:pointer;font-size:11px;font-weight:500;width:100%;">✕ Verwijder verlof/ziek markering</button>`:''}
+    </div>
+    <button class="btn btn-s" onclick="closeMod()" style="width:100%;">Sluiten</button>
+  </div></div>`;
 }
-async function doLogin(){
-  const pid=parseInt(document.getElementById('l-pid')?.value)||null;
-  const pwd=document.getElementById('l-pwd')?.value||'';
-  if(!pid){ST.loginErr='Kies je naam.';render();return;}
-  const p=gp(pid);
-  if(!p){ST.loginErr='Persoon niet gevonden.';render();return;}
-  if(p.pwd&&!(await checkPwd(pwd,p.pwd))){ST.loginErr='Onjuist wachtwoord.';render();return;}
-  AUTH={pid};saveAuth();ST.loginErr='';ST.loginPid=null;ST.screen='planning';render();showToast(`👋 Welkom, ${p.name}!`);
+
+function bDataModal(){
+  const dm=S.dataModal;
+  if(dm.type==='export'){
+    const json=JSON.stringify(getExportData(),null,2);
+    return`<div class="ov" onclick="S.dataModal=null;render()"><div class="modal" onclick="event.stopPropagation()">
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:6px;">📋 Back-up exporteren</h3>
+      <textarea class="jtxt" id="jtxt" readonly>${esc(json)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-p" style="flex:1;" onclick="document.getElementById('jtxt').select();document.execCommand('copy');this.textContent='✓ Gekopieerd!'">📋 Kopieer alles</button>
+        <button class="btn btn-s" onclick="S.dataModal=null;render()">Sluiten</button>
+      </div>
+    </div></div>`;
+  }
+  return`<div class="ov" onclick="S.dataModal=null;render()"><div class="modal" onclick="event.stopPropagation()">
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:6px;">📂 Back-up importeren</h3>
+    <textarea class="jtxt" id="jtxt2" placeholder='{"persons":[...],...}'></textarea>
+    <div id="jerr" style="color:#dc2626;font-size:12px;margin-top:6px;"></div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn btn-p" style="flex:1;" onclick="doImport()">✓ Laden</button>
+      <button class="btn btn-s" onclick="S.dataModal=null;render()">Annuleren</button>
+    </div>
+  </div></div>`;
 }
-function logout(){AUTH={pid:null};saveAuth();ST.screen='login';ST.loginErr='';render();}
-function resetSetup(){if(!confirm('Verbinding opnieuw instellen?'))return;if(esConn){esConn.close();esConn=null;}SYNC={dbUrl:'',webApiKey:'',enabled:false};_authToken=null;saveSyncConfig();ST.screen='setup';render();}
-function prevMo(){ST.mo===0?(ST.mo=11,ST.yr--):ST.mo--;render();}
-function nextMo(){ST.mo===11?(ST.mo=0,ST.yr++):ST.mo++;render();}
-function goToday(){ST.yr=now.getFullYear();ST.mo=now.getMonth();render();}
-function openDetail(wnId,ds){ST.detail={wnId,ds};render();}
-async function refreshAndShow(){
-  showToast('🔄 Vernieuwen...',3000);
+
+function bWnEditModal(){
+  const wm=S.wnEditModal,w=gwn(wm.wnId);if(!w)return'';
+  const imgs=w.imgs||[];const pdfs=w.pdfUrls||[];
+  return`<div class="ov" onclick="closeWnEdit()"><div class="modal" style="max-width:520px;" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${w.color};"></span>
+      <h3 style="font-size:15px;font-weight:700;flex:1;">${esc(w.label)} — Details</h3>
+      <button onclick="closeWnEdit()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;padding:0;">✕</button>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Omschrijving / instructies</label>
+      <textarea class="inp" style="height:100px;resize:vertical;line-height:1.5;" placeholder="Beschrijving van het werk, materialen, bijzonderheden..." oninput="upWnDesc(${w.id},this.value)">${esc(w.desc||'')}</textarea>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:8px;">Afbeeldingen / tekeningen</label>
+      ${imgs.map((img,i)=>{const src=img.url||img.data||'';return`<div style="background:#f8fafc;border-radius:8px;padding:8px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          <span style="font-size:12px;color:#64748b;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(img.name)}</span>
+          ${img.url?`<a href="${esc(img.url)}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;white-space:nowrap;">↗ Open</a>`:''}
+          <button onclick="rmWnImg(${w.id},${i})" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:12px;white-space:nowrap;">✕</button>
+        </div>
+        ${src?`<img src="${esc(src)}" style="width:100%;border-radius:6px;max-height:200px;object-fit:contain;" alt="${esc(img.name)}">`:''}
+      </div>`;}).join('')}
+      <label style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:500;color:#374151;">
+        📎 Afbeelding toevoegen${cloudinaryReady()?` (→ Cloudinary)`:''}
+        <input type="file" accept="image/*" style="display:none;" onchange="addWnImg(${w.id},this)">
+      </label>
+      <div style="font-size:11px;color:#94a3b8;margin-top:5px;">${cloudinaryReady()?'Afbeeldingen worden geüpload naar Cloudinary (25GB gratis). Geen limiet per werkorder.':'Cloudinary niet ingesteld — afbeeldingen worden als base64 opgeslagen. Stel Cloudinary in bij ☁️ Synchronisatie voor betere schaalbaarheid.'}</div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:8px;">Documenten / tekeningen / links</label>
+      ${pdfs.map((pdf,i)=>`<div style="display:flex;gap:5px;margin-bottom:6px;align-items:center;">
+        <input class="inp-sm" style="width:110px;" placeholder="Naam" value="${esc(pdf.name||'')}" onchange="upWnPdfName(${w.id},${i},this.value)">
+        <input class="inp-sm" style="flex:1;" placeholder="URL (https://...)" value="${esc(pdf.url||'')}" onchange="upWnPdfUrl(${w.id},${i},this.value)">
+        ${pdf.url?`<a href="${esc(pdf.url)}" target="_blank" style="font-size:14px;text-decoration:none;flex-shrink:0;" title="Openen">↗</a>`:''}
+        <button onclick="rmWnPdf(${w.id},${i})" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:15px;padding:0 2px;flex-shrink:0;">✕</button>
+      </div>`).join('')}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+        <button class="btn btn-s btn-sm" onclick="addWnPdf(${w.id})">+ URL toevoegen</button>
+        ${cloudinaryReady()?`<label style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:500;color:#15803d;">📤 Bestand uploaden<input type="file" style="display:none;" onchange="addWnDoc(${w.id},this)"></label>`:''}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-p" style="flex:1;" onclick="closeWnEdit()">✓ Opslaan & sluiten</button>
+    </div>
+  </div></div>`;
+}
+
+// ── Wachtwoord hashing (PBKDF2) ──────────────────────────────
+async function hashPassword(pwd){
+  if(!pwd)return'';
+  const enc=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',enc.encode(pwd),{name:'PBKDF2'},false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode('cap-planning-salt-v1'),iterations:100000,hash:'SHA-256'},key,256);
+  return Array.from(new Uint8Array(bits)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function isHashed(s){return typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);}
+async function setPwd(pid,rawPwd){
+  const p=gp(pid);if(!p)return;
+  p.pwd=rawPwd?(await hashPassword(rawPwd)):'';
+  onChange();showToast(rawPwd?'🔑 Wachtwoord opgeslagen':'🔓 Wachtwoord verwijderd');
+}
+
+function setTab(t){S.tab=t;render();}
+function prevWeek(){S.viewStart=fdDate(addDays(parseDs(S.viewStart),-7));render();}
+function nextWeek(){S.viewStart=fdDate(addDays(parseDs(S.viewStart),7));render();}
+function prevMo(){prevWeek();}
+function nextMo(){nextWeek();}
+function goToday(){S.viewStart=getViewMonday(now);render();}
+function openMod(pid,ds){S.modal={pid,ds};render();}
+function closeMod(){S.modal=null;render();}
+function asgnW(wid){const key=`${S.modal.pid}_${S.modal.ds}`;wid===null?delete S.asgn[key]:S.asgn[key]=wid;S.modal=null;onChange();render();}
+function addP(){const n=document.getElementById('pn')?.value?.trim();const h=parseInt(document.getElementById('ph')?.value)||8;if(!n||S.persons.length>=15)return;S.persons.push({id:S.npid++,name:n,hrs:Math.max(1,Math.min(24,h)),wd:[1,2,3,4,5],pwd:''});onChange();render();}
+function rmP(id){if(!confirm('Persoon verwijderen?'))return;S.persons=S.persons.filter(p=>p.id!==id);for(const k of Object.keys(S.asgn)){if(k.startsWith(`${id}_`))delete S.asgn[k];}onChange();render();}
+function upP(id,f,v){const p=gp(id);if(p){p[f]=v;onChange();}}
+function toggleWd(pid,dow){const p=gp(pid);if(!p)return;if(!p.wd)p.wd=[1,2,3,4,5];const i=p.wd.indexOf(dow);i===-1?p.wd.push(dow):p.wd.splice(i,1);onChange();render();}
+function addW(){const l=document.getElementById('wl')?.value?.trim();const h=parseInt(document.getElementById('wh')?.value)||40;if(!l)return;S.wns.push({id:S.nwid++,label:l,needed:Math.max(1,h),color:COLORS[S.wns.length%COLORS.length],desc:'',imgs:[],pdfUrls:[],deadline:''});onChange();render();}
+function rmW(id){if(!confirm('Werknummer verwijderen?'))return;S.wns=S.wns.filter(w=>w.id!==id);for(const k of Object.keys(S.asgn)){if(S.asgn[k]===id)delete S.asgn[k];}onChange();render();}
+function upW(id,f,v){const w=gwn(id);if(w){w[f]=v;onChange();}}
+function rstAll(){if(!confirm('Alle planningsdata wissen?'))return;S.asgn={};onChange();pushToCloud(false);render();}
+
+async function connectSync(){
+  const dbUrl=document.getElementById('cfg-url')?.value?.trim();
+  const webApiKey=document.getElementById('cfg-apikey')?.value?.trim();
+  const cloudName=document.getElementById('cfg-cloud')?.value?.trim()||'';
+  const uploadPreset=document.getElementById('cfg-preset')?.value?.trim()||'';
+  if(!dbUrl||!webApiKey){showToast('⚠️ Vul Database URL en API-sleutel in');return;}
+  SYNC={dbUrl,webApiKey,cloudName,uploadPreset,enabled:true};_authToken=null;_tokenExpiry=0;saveSyncConfig();showToast('🔄 Verbinding testen...',4000);
   const ok=await pullFromFirebase();
-  showToast(ok?'✅ Bijgewerkt':'⚠️ Geen verbinding — lokale data');
+  if(ok){startRealtimeSync();render();showToast('✅ Verbonden! Data opgehaald uit Firebase.');}
+  else{
+    await pushToFirebase(false);
+    if(syncStatus==='ok'){startRealtimeSync();render();showToast('✅ Verbonden! Data geüpload naar Firebase.');}
+    else{SYNC={dbUrl:'',enabled:false};saveSyncConfig();showToast('❌ Verbinding mislukt. Controleer de Database URL en regels.');render();}
+  }
+}
+async function manualPush(){showToast('⬆ Uploaden...',3000);await pushToFirebase(false);if(syncStatus==='ok')showToast('✅ Geüpload naar Firebase');else showToast('❌ Mislukt');render();}
+async function manualRefresh(){
+  if(!SYNC.enabled){showToast('⚠️ Synchronisatie niet ingesteld');return;}
+  showToast('🔄 Ophalen uit Firebase...',3000);
+  const changed=await pullFromFirebase();
+  if(changed){render();showToast('✅ Planning bijgewerkt');}
+  else if(syncStatus==='ok'){showToast('✅ Al up-to-date');}
+  else{showToast('❌ Ophalen mislukt');}
   render();
 }
-
-loadSyncConfig();
-loadLocal();
-loadAuth();
-if(SYNC.enabled){
-  ST.screen='loading';render();
-  pullFromFirebase().then(ok=>{
-    if(!ok)showToast('⚠️ Offline — lokale data wordt getoond');
-    if(AUTH.pid&&gp(AUTH.pid)){ST.screen='planning';}
-    else{AUTH={pid:null};saveAuth();ST.screen='login';}
-    startRealtimeSync();
-    render();
-  });
-}else{
-  ST.screen='setup';render();
+function disconnectSync(){if(!confirm('Synchronisatie verwijderen?'))return;if(esConn){esConn.close();esConn=null;}SYNC={dbUrl:'',webApiKey:'',enabled:false};_authToken=null;saveSyncConfig();syncStatus='off';lastSyncTime=null;showToast('Synchronisatie uitgeschakeld');render();}
+function doImport(){
+  try{const txt=document.getElementById('jtxt2')?.value?.trim();if(!txt)throw new Error('Geen data.');const d=JSON.parse(txt);if(!d.persons||!d.wns||d.asgn===undefined)throw new Error('Ongeldige structuur.');applyData(d);onChange();S.dataModal=null;render();showToast('✅ Back-up geladen');}
+  catch(e){const el=document.getElementById('jerr');if(el)el.textContent='Fout: '+e.message;}
 }
+
+function openWnEdit(wnId){S.wnEditModal={wnId};render();}
+function closeWnEdit(){S.wnEditModal=null;onChange();render();}
+function upWnDesc(wnId,val){const w=gwn(wnId);if(w)w.desc=val;}
+function addWnPdf(wnId){const w=gwn(wnId);if(!w)return;if(!w.pdfUrls)w.pdfUrls=[];w.pdfUrls.push({id:Date.now(),name:'',url:''});onChange();render();}
+function rmWnPdf(wnId,idx){const w=gwn(wnId);if(!w||!w.pdfUrls)return;w.pdfUrls.splice(idx,1);onChange();render();}
+function upWnPdfName(wnId,idx,val){const w=gwn(wnId);if(w&&w.pdfUrls[idx])w.pdfUrls[idx].name=val;}
+function upWnPdfUrl(wnId,idx,val){const w=gwn(wnId);if(w&&w.pdfUrls[idx])w.pdfUrls[idx].url=val;}
+function rmWnImg(wnId,idx){
+  const w=gwn(wnId);if(!w||!w.imgs)return;
+  // Cloudinary heeft geen client-side delete met unsigned preset — bestand blijft in Cloudinary dashboard
+  w.imgs.splice(idx,1);
+  onChange();render();
+}
+async function addWnImg(wnId,input){
+  const file=input.files[0];if(!file)return;
+  const w=gwn(wnId);if(!w)return;if(!w.imgs)w.imgs=[];
+  if(cloudinaryReady()){
+    showToast('⏳ Afbeelding uploaden...',8000);
+    try{
+      const blob=await compressToBlob(file);
+      const url=await uploadToCloudinary(blob,'image');
+      w.imgs.push({id:Date.now(),name:file.name,url});
+      onChange();render();showToast('✅ Afbeelding geüpload');
+    }catch(e){showToast('❌ Upload mislukt: '+e.message);}
+  }else{
+    // Fallback: base64 (geen Cloudinary geconfigureerd)
+    showToast('⏳ Afbeelding verwerken...',4000);
+    const img=await compressImage(file);
+    w.imgs.push(img);onChange();render();showToast('✅ Afbeelding toegevoegd (lokaal)');
+  }
+}
+async function addWnDoc(wnId,input){
+  const file=input.files[0];if(!file)return;
+  const w=gwn(wnId);if(!w)return;if(!w.pdfUrls)w.pdfUrls=[];
+  if(!cloudinaryReady()){showToast('⚠️ Stel eerst Cloudinary in bij ☁️ Synchronisatie');return;}
+  showToast('⏳ Document uploaden...',8000);
+  try{
+    const url=await uploadToCloudinary(file,'raw');
+    w.pdfUrls.push({id:Date.now(),name:file.name,url});
+    onChange();render();showToast('✅ Document geüpload');
+  }catch(e){showToast('❌ Upload mislukt: '+e.message);}
+}
+async function compressImage(file,maxW=700,quality=0.78){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const canvas=document.createElement('canvas');
+        const ratio=Math.min(maxW/img.width,maxW/img.height,1);
+        canvas.width=Math.round(img.width*ratio);
+        canvas.height=Math.round(img.height*ratio);
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        resolve({id:Date.now(),name:file.name,data:canvas.toDataURL('image/jpeg',quality)});
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function onWnDragStart(wnId,e){rangeState=null;clearRangeHighlight();dragData={type:'wn',wnId};e.dataTransfer.effectAllowed='copy';}
+function onCellDragStart(pid,ds,e){e.stopPropagation();rangeState=null;clearRangeHighlight();dragData={type:'cell',pid,ds};e.dataTransfer.effectAllowed='move';}
+function onDrop(pid,ds,e){
+  e.preventDefault();e.stopPropagation();
+  if(!dragData)return;
+  const key=`${pid}_${ds}`;
+  if(dragData.type==='wn'){
+    S.asgn[key]=dragData.wnId;
+  } else if(dragData.type==='cell'){
+    const srcKey=`${dragData.pid}_${dragData.ds}`;
+    const srcWid=S.asgn[srcKey];
+    if(srcWid!==undefined){S.asgn[key]=srcWid;if(srcKey!==key)delete S.asgn[srcKey];}
+  }
+  dragData=null;onChange();render();
+}
+
+// ── Range selection ──────────────────────────────────────────
+function cellMouseDown(pid,ds,event){
+  if(event.button!==0)return;
+  event.preventDefault();
+  rangeState={pid,startDs:ds,endDs:ds,active:true};
+  updateRangeHighlight();
+}
+function cellMouseEnter(pid,ds){
+  if(!rangeState||!rangeState.active||pid!==rangeState.pid)return;
+  rangeState.endDs=ds;
+  updateRangeHighlight();
+}
+function updateRangeHighlight(){
+  document.querySelectorAll('.dc.range-sel').forEach(el=>el.classList.remove('range-sel'));
+  if(!rangeState||!rangeState.active)return;
+  const d1=parseDs(rangeState.startDs),d2=parseDs(rangeState.endDs);
+  const fromD=d1<=d2?d1:d2;const toD=d1<=d2?d2:d1;
+  const pid=rangeState.pid;
+  let cur=new Date(fromD);
+  while(cur<=toD){
+    const ds=fdDate(cur);
+    const el=document.querySelector(`.dc[data-pid="${pid}"][data-ds="${ds}"]`);
+    if(el)el.classList.add('range-sel');
+    cur=addDays(cur,1);
+  }
+}
+function clearRangeHighlight(){
+  document.querySelectorAll('.dc.range-sel').forEach(el=>el.classList.remove('range-sel'));
+}
+function finishRange(){
+  if(!rangeState||!rangeState.active)return;
+  rangeState.active=false;
+  clearRangeHighlight();
+  const d1=parseDs(rangeState.startDs),d2=parseDs(rangeState.endDs);
+  const fromD=d1<=d2?d1:d2;const toD=d1<=d2?d2:d1;
+  if(rangeState.startDs===rangeState.endDs){
+    S.modal={pid:rangeState.pid,ds:rangeState.startDs};
+    rangeState=null;render();return;
+  }
+  S.rangeModal={pid:rangeState.pid,fromDs:fdDate(fromD),toDs:fdDate(toD)};
+  rangeState=null;render();
+}
+function cancelRange(){S.rangeModal=null;rangeState=null;clearRangeHighlight();render();}
+
+// ── Range assignment ─────────────────────────────────────────
+function asgnWRange(wid){
+  const rm=S.rangeModal;if(!rm)return;
+  const p=gp(rm.pid);if(!p)return;
+  const d1=parseDs(rm.fromDs),d2=parseDs(rm.toDs);
+  let cur=new Date(d1);
+  while(cur<=d2){
+    const ds=fdDate(cur);
+    if(pWorks(p,cur.getFullYear(),cur.getMonth(),cur.getDate())){
+      const key=`${rm.pid}_${ds}`;
+      if(wid===null){delete S.asgn[key];}else{S.asgn[key]=wid;}
+    }
+    cur=addDays(cur,1);
+  }
+  S.rangeModal=null;onChange();render();
+}
+function asgnRangeLeave(type){
+  const rm=S.rangeModal;if(!rm)return;
+  const p=gp(rm.pid);if(!p)return;
+  if(!S.leave)S.leave={};
+  const d1=parseDs(rm.fromDs),d2=parseDs(rm.toDs);
+  let cur=new Date(d1);
+  while(cur<=d2){
+    const ds=fdDate(cur);
+    if(pWorks(p,cur.getFullYear(),cur.getMonth(),cur.getDate())){
+      S.leave[`${rm.pid}_${ds}`]=type;
+    }
+    cur=addDays(cur,1);
+  }
+  S.rangeModal=null;onChange();render();
+}
+function clearRangeLeave(){
+  const rm=S.rangeModal;if(!rm)return;
+  const p=gp(rm.pid);if(!p)return;
+  if(!S.leave)S.leave={};
+  const d1=parseDs(rm.fromDs),d2=parseDs(rm.toDs);
+  let cur=new Date(d1);
+  while(cur<=d2){
+    const ds=fdDate(cur);
+    delete S.leave[`${rm.pid}_${ds}`];
+    cur=addDays(cur,1);
+  }
+  S.rangeModal=null;onChange();render();
+}
+
+// ── Single-day leave ─────────────────────────────────────────
+function setLeave(pid,ds,type){
+  if(!S.leave)S.leave={};
+  S.leave[`${pid}_${ds}`]=type;
+  S.modal=null;onChange();render();
+}
+function clearLeave(pid,ds){
+  if(!S.leave)S.leave={};
+  delete S.leave[`${pid}_${ds}`];
+  S.modal=null;onChange();render();
+}
+
+// ── Range modal ───────────────────────────────────────────────
+function bRangeModal(){
+  const rm=S.rangeModal;const p=gp(rm.pid);
+  const d1=parseDs(rm.fromDs),d2=parseDs(rm.toDs);
+  const nDays=Math.round((d2-d1)/86400000)+1;
+  return`<div class="ov" onclick="cancelRange()"><div class="modal" onclick="event.stopPropagation()">
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:3px;">Meerdaags toewijzen</h3>
+    <p style="font-size:12px;color:#64748b;margin-bottom:16px;">${esc(p?.name||'')} — ${rm.fromDs} t/m ${rm.toDs} <span style="background:#e0f2fe;color:#0369a1;border-radius:999px;padding:1px 8px;font-weight:600;">${nDays}d</span></p>
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:2px;">WERKNUMMER TOEWIJZEN</div>
+      ${S.wns.map(w=>`<button class="wnbtn" onclick="asgnWRange(${w.id})" style="border:2px solid #e2e8f0;background:#fff;">${dot(w.color,13)}<div style="flex:1;"><div style="font-weight:600;font-size:13px;">${esc(w.label)}</div><div style="font-size:11px;color:#64748b;">${w.needed}u benodigd</div></div></button>`).join('')}
+      ${!S.wns.length?'<p style="text-align:center;color:#94a3b8;font-size:12px;">Maak eerst werknummers aan in ⚙️ Instellingen.</p>':''}
+      <div style="border-top:1px solid #e2e8f0;margin:4px 0;padding-top:10px;">
+        <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:8px;">VERLOF / AFWEZIGHEID MARKEREN</div>
+        <div style="display:flex;gap:7px;">
+          <button onclick="asgnRangeLeave('V')" style="flex:1;padding:9px;border:2px solid #fcd34d;border-radius:10px;background:#fffbeb;color:#92400e;cursor:pointer;font-size:12px;font-weight:600;">🌴 Verlof</button>
+          <button onclick="asgnRangeLeave('Z')" style="flex:1;padding:9px;border:2px solid #fca5a5;border-radius:10px;background:#fff1f2;color:#dc2626;cursor:pointer;font-size:12px;font-weight:600;">🤒 Ziek</button>
+          <button onclick="clearRangeLeave()" style="flex:1;padding:9px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px;font-weight:500;">✕ Verlof wissen</button>
+        </div>
+      </div>
+      <button onclick="asgnWRange(null)" style="padding:9px;border:1px dashed #fca5a5;border-radius:10px;background:#fff1f2;color:#dc2626;cursor:pointer;font-size:12px;font-weight:500;width:100%;">✕ Verwijder werknummers in bereik</button>
+    </div>
+    <button class="btn btn-s" onclick="cancelRange()" style="margin-top:12px;width:100%;">Annuleren</button>
+  </div></div>`;
+}
+
+// ── Terugkerende toewijzingen ─────────────────────────────────
+function openRecurringModal(){
+  S.recurringModal={pid:'all',wnId:S.wns.length?S.wns[0].id:null,dows:[1,2,3,4,5],fromDs:TSTR,toDs:''};
+  render();
+}
+function cancelRecurring(){S.recurringModal=null;render();}
+
+function bRecurringModal(){
+  const rm=S.recurringModal;
+  const selWn=rm.wnId?gwn(rm.wnId):null;
+  const selP=rm.pid!=='all'?gp(parseInt(rm.pid)):null;
+  return`<div class="ov" onclick="cancelRecurring()"><div class="modal" style="max-width:460px;" onclick="event.stopPropagation()">
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;">🔁 Wekelijks herhalen</h3>
+    <p style="font-size:12px;color:#64748b;margin-bottom:16px;">Plan een werknummer op vaste weekdagen over een periode.</p>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Persoon</label>
+        <select class="inp" style="width:100%;" onchange="S.recurringModal.pid=this.value;render()">
+          <option value="all" ${rm.pid==='all'?'selected':''}>— Alle personen —</option>
+          ${S.persons.map(p=>`<option value="${p.id}" ${rm.pid==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Werknummer</label>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          ${S.wns.map(w=>`<button class="wnbtn" onclick="S.recurringModal.wnId=${w.id};render()" style="border:2px solid ${rm.wnId===w.id?w.color:'#e2e8f0'};background:${rm.wnId===w.id?w.color+'18':'#fff'};">${dot(w.color,12)}<span style="flex:1;font-weight:600;font-size:13px;">${esc(w.label)}</span>${rm.wnId===w.id?`<span style="color:${w.color};">✓</span>`:''}</button>`).join('')}
+          ${!S.wns.length?'<p style="color:#94a3b8;font-size:12px;">Eerst werknummers aanmaken.</p>':''}
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Herhaal op weekdagen</label>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          ${DOW_ORDER.map(dow=>{const on=rm.dows.includes(dow);return`<button class="wd-btn ${on?'on':''}" onclick="(function(){const i=S.recurringModal.dows.indexOf(${dow});i===-1?S.recurringModal.dows.push(${dow}):S.recurringModal.dows.splice(i,1);render();})()">${DNMS[dow]}</button>`;}).join('')}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:120px;">
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Vanaf</label>
+          <input class="inp" type="date" value="${rm.fromDs}" onchange="S.recurringModal.fromDs=this.value">
+        </div>
+        <div style="flex:1;min-width:120px;">
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tot en met</label>
+          <input class="inp" type="date" value="${rm.toDs}" onchange="S.recurringModal.toDs=this.value">
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-p" style="flex:1;" onclick="applyRecurring()">✓ Inplannen</button>
+      <button class="btn btn-s" onclick="cancelRecurring()">Annuleren</button>
+    </div>
+  </div></div>`;
+}
+
+function applyRecurring(){
+  const rm=S.recurringModal;
+  if(!rm.wnId){showToast('⚠️ Selecteer een werknummer');return;}
+  if(!rm.fromDs||!rm.toDs){showToast('⚠️ Vul een begin- en einddatum in');return;}
+  if(!rm.dows.length){showToast('⚠️ Selecteer minstens één weekdag');return;}
+  const from=parseDs(rm.fromDs),to=parseDs(rm.toDs);
+  if(from>to){showToast('⚠️ Begindatum moet vóór einddatum liggen');return;}
+  const persons=rm.pid==='all'?S.persons:[gp(parseInt(rm.pid))].filter(Boolean);
+  let count=0;
+  let cur=new Date(from);
+  while(cur<=to){
+    const dow=cur.getDay();
+    if(rm.dows.includes(dow)){
+      const ds=fdDate(cur);
+      for(const p of persons){
+        if(pWorks(p,cur.getFullYear(),cur.getMonth(),cur.getDate())){
+          S.asgn[`${p.id}_${ds}`]=rm.wnId;
+          count++;
+        }
+      }
+    }
+    cur=addDays(cur,1);
+  }
+  S.recurringModal=null;
+  onChange();render();
+  showToast(`✅ ${count} dagdelen ingepland`);
+}
+
+document.addEventListener('mouseup',finishRange);
+loadSyncConfig();loadLocal();render();
+if(SYNC.enabled){pullFromFirebase().then(changed=>{if(changed)render();startRealtimeSync();});}
 </script>
 </body>
 </html>
