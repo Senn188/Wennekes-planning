@@ -449,9 +449,9 @@ function bInst(){
           <span style="font-size:10px;color:#94a3b8;margin-left:4px;">${wd.length*p.hrs}u/week</span>
         </div>
         <div class="prow2" style="margin-top:6px;">
-          <span style="font-size:10px;color:#64748b;margin-right:4px;">🔑 Wachtwoord:</span>
-          <input class="inp-sm" type="text" value="${esc(p.pwd||'')}" placeholder="Geen wachtwoord" style="flex:1;max-width:150px;" onchange="upP(${p.id},'pwd',this.value)">
-          <span style="font-size:10px;color:#94a3b8;margin-left:4px;">(laat leeg = vrij toegankelijk)</span>
+          <span style="font-size:10px;color:#64748b;margin-right:4px;">🔑</span>
+          <input class="inp-sm" type="password" placeholder="${p.pwd?(isHashed(p.pwd)?'Beveiligd — typ om te wijzigen':'Oud wachtwoord — typ om te beveiligen'):'Geen wachtwoord'}" style="flex:1;max-width:180px;" onchange="if(this.value.trim())setPwd(${p.id},this.value.trim())">
+          ${p.pwd?`<button onclick="setPwd(${p.id},'')" title="Wachtwoord verwijderen" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:11px;white-space:nowrap;padding:0 2px;">✕ Wissen</button><span style="font-size:10px;color:${isHashed(p.pwd)?'#15803d':'#f59e0b'};white-space:nowrap;">${isHashed(p.pwd)?'🔒 Versleuteld':'⚠️ Niet versleuteld'}</span>`:'<span style="font-size:10px;color:#94a3b8;">Vrij toegankelijk</span>'}
         </div>
       </div>`;}).join('')}${!S.persons.length?'<p style="text-align:center;color:#94a3b8;padding:14px;font-size:13px;">Nog geen personen.</p>':''}</div>
     </div>
@@ -652,6 +652,21 @@ function bWnEditModal(){
   </div></div>`;
 }
 
+// ── Wachtwoord hashing (PBKDF2) ──────────────────────────────
+async function hashPassword(pwd){
+  if(!pwd)return'';
+  const enc=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',enc.encode(pwd),{name:'PBKDF2'},false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode('cap-planning-salt-v1'),iterations:100000,hash:'SHA-256'},key,256);
+  return Array.from(new Uint8Array(bits)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function isHashed(s){return typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);}
+async function setPwd(pid,rawPwd){
+  const p=gp(pid);if(!p)return;
+  p.pwd=rawPwd?(await hashPassword(rawPwd)):'';
+  onChange();showToast(rawPwd?'🔑 Wachtwoord opgeslagen':'🔓 Wachtwoord verwijderd');
+}
+
 function setTab(t){S.tab=t;render();}
 function prevWeek(){S.viewStart=fdDate(addDays(parseDs(S.viewStart),-7));render();}
 function nextWeek(){S.viewStart=fdDate(addDays(parseDs(S.viewStart),7));render();}
@@ -661,7 +676,7 @@ function goToday(){S.viewStart=getViewMonday(now);render();}
 function openMod(pid,ds){S.modal={pid,ds};render();}
 function closeMod(){S.modal=null;render();}
 function asgnW(wid){const key=`${S.modal.pid}_${S.modal.ds}`;wid===null?delete S.asgn[key]:S.asgn[key]=wid;S.modal=null;onChange();render();}
-function addP(){const n=document.getElementById('pn')?.value?.trim();const h=parseInt(document.getElementById('ph')?.value)||8;if(!n||S.persons.length>=15)return;S.persons.push({id:S.npid++,name:n,hrs:Math.max(1,Math.min(24,h)),wd:[1,2,3,4,5]});onChange();render();}
+function addP(){const n=document.getElementById('pn')?.value?.trim();const h=parseInt(document.getElementById('ph')?.value)||8;if(!n||S.persons.length>=15)return;S.persons.push({id:S.npid++,name:n,hrs:Math.max(1,Math.min(24,h)),wd:[1,2,3,4,5],pwd:''});onChange();render();}
 function rmP(id){if(!confirm('Persoon verwijderen?'))return;S.persons=S.persons.filter(p=>p.id!==id);for(const k of Object.keys(S.asgn)){if(k.startsWith(`${id}_`))delete S.asgn[k];}onChange();render();}
 function upP(id,f,v){const p=gp(id);if(p){p[f]=v;onChange();}}
 function toggleWd(pid,dow){const p=gp(pid);if(!p)return;if(!p.wd)p.wd=[1,2,3,4,5];const i=p.wd.indexOf(dow);i===-1?p.wd.push(dow):p.wd.splice(i,1);onChange();render();}
