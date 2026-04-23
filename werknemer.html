@@ -40,7 +40,7 @@ const LS_AUTH='cap_plan_auth_v1';
 
 let SYNC={dbUrl:'',webApiKey:'',enabled:false};
 let _authToken=null,_tokenExpiry=0;
-let DATA={persons:[],wns:[],asgn:{}};
+let DATA={persons:[],wns:[],asgn:{},actual:{}};
 let AUTH={pid:null};
 let ST={screen:'loading',yr:now.getFullYear(),mo:now.getMonth(),detail:null,loginPid:null,loginErr:''};
 
@@ -76,8 +76,10 @@ function applyData(d){
   if(d.persons)DATA.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||''}));
   if(d.wns)DATA.wns=d.wns.map(w=>({...w,desc:w.desc||'',imgs:w.imgs||[],pdfUrls:w.pdfUrls||[]}));
   if(d.asgn)DATA.asgn=d.asgn;
+  if(d.actual)DATA.actual=d.actual; else if(!DATA.actual)DATA.actual={};
 }
 function fbBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning.json';}
+function fbActualBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning/actual.json';}
 
 async function getAuthToken(){
   if(_authToken&&Date.now()<_tokenExpiry)return _authToken;
@@ -226,6 +228,7 @@ function buildPlanning(){
         const isToday=ds===TSTR;
         const dow=new Date(ST.yr,ST.mo,d).getDay();
         const isWknd=dow===0||dow===6;
+        const actHrs=(DATA.actual||{})[`${p.id}_${ds}`];
         return`<div class="day-card" style="border-left:4px solid ${isToday?'#3b82f6':wn?wn.color:works?'#e2e8f0':'#f1f5f9'};opacity:${works?1:.45};${wn?'cursor:pointer;':''}" ${wn?`onclick="openDetail(${wn.id},'${ds}')"`:''}">
           <div style="min-width:44px;text-align:center;">
             <div style="font-size:10px;font-weight:700;color:${isToday?'#2563eb':isWknd?'#94a3b8':'#64748b'};">${DNMS[dow]}</div>
@@ -239,7 +242,10 @@ function buildPlanning(){
                 :`<div style="font-size:12px;color:#cbd5e1;">Vrij</div>`
             }
           </div>
-          ${wn?`<div style="font-size:20px;color:#cbd5e1;flex-shrink:0;">›</div>`:''}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+            ${actHrs!==undefined?`<span style="font-size:10px;font-weight:700;background:#f5f3ff;color:#5b21b6;border-radius:6px;padding:2px 6px;">⏱${actHrs}u</span>`:''}
+            ${wn?`<div style="font-size:20px;color:#cbd5e1;">›</div>`:''}
+          </div>
         </div>`;
       }).join('')}
     </div>
@@ -252,7 +258,12 @@ function buildDetailModal(){
   const {wnId,ds}=ST.detail;
   const wn=gwn(wnId);
   if(!wn)return'';
+  const p=gp(AUTH.pid);
   const hasContent=wn.desc||(wn.imgs&&wn.imgs.length)||(wn.pdfUrls&&wn.pdfUrls.length);
+  const actKey=`${AUTH.pid}_${ds}`;
+  const actHrs=(DATA.actual||{})[actKey];
+  const stdHrs=p?p.hrs:8;
+  const isPast=ds<TSTR;
   return`<div class="ov" onclick="ST.detail=null;render()">
     <div class="sheet" onclick="event.stopPropagation()">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
@@ -260,7 +271,7 @@ function buildDetailModal(){
         <h2 style="font-size:19px;font-weight:700;flex:1;">${esc(wn.label)}</h2>
         <button onclick="ST.detail=null;render()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1;padding:0 2px;">✕</button>
       </div>
-      <div style="font-size:12px;color:#94a3b8;margin-bottom:20px;">📅 ${ds}</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:16px;">📅 ${ds}</div>
 
       ${wn.desc?`<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:16px;">
         <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;margin-bottom:8px;">OMSCHRIJVING</div>
@@ -283,11 +294,48 @@ function buildDetailModal(){
         </a>`).join('')}
       </div>`:''}
 
-      ${!hasContent?`<div style="text-align:center;padding:28px;color:#94a3b8;font-size:14px;">📭 Geen aanvullende informatie beschikbaar</div>`:''}
+      ${!hasContent?`<div style="text-align:center;padding:20px 0 8px;color:#94a3b8;font-size:14px;">📭 Geen aanvullende informatie</div>`:''}
 
-      <button style="width:100%;background:#f1f5f9;border:none;border-radius:10px;padding:14px;font-size:14px;cursor:pointer;font-weight:500;color:#374151;margin-top:4px;" onclick="ST.detail=null;render()">Sluiten</button>
+      <div style="background:${actHrs!==undefined?'#f5f3ff':'#f8fafc'};border:1px solid ${actHrs!==undefined?'#ddd6fe':'#e2e8f0'};border-radius:12px;padding:14px;margin-top:8px;margin-bottom:4px;">
+        <div style="font-size:10px;font-weight:700;color:${actHrs!==undefined?'#5b21b6':'#64748b'};letter-spacing:.06em;margin-bottom:10px;">⏱ GEWERKTE UREN${actHrs!==undefined?` — ${actHrs}u geregistreerd`:''}</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">Standaard: ${stdHrs}u. Geef alleen op als je afwijkt.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="act-hrs" class="inp" type="number" min="0" max="24" step="0.5" placeholder="${stdHrs}" value="${actHrs!==undefined?actHrs:''}" style="width:90px;font-size:16px;font-weight:700;text-align:center;">
+          <span style="font-size:13px;color:#64748b;">uur</span>
+          <button class="btn btn-p btn-sm" onclick="(async()=>{const v=document.getElementById('act-hrs').value;await submitActual('${ds}',v===''?null:v);})()" style="flex:1;min-width:80px;">💾 Opslaan</button>
+          ${actHrs!==undefined?`<button class="btn btn-s btn-sm" onclick="submitActual('${ds}',null)" title="Uren wissen">✕</button>`:''}
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:8px;">Afwijkingen worden zichtbaar voor de planner in het capaciteitsoverzicht.</div>
+      </div>
+
+      <button style="width:100%;background:#f1f5f9;border:none;border-radius:10px;padding:14px;font-size:14px;cursor:pointer;font-weight:500;color:#374151;margin-top:12px;" onclick="ST.detail=null;render()">Sluiten</button>
     </div>
   </div>`;
+}
+
+async function submitActual(ds,hrs){
+  const pid=AUTH.pid;if(!pid)return;
+  const key=`${pid}_${ds}`;
+  if(!DATA.actual)DATA.actual={};
+  if(hrs===null||hrs===''||isNaN(hrs)){
+    delete DATA.actual[key];
+  }else{
+    DATA.actual[key]=Math.max(0,parseFloat(hrs)||0);
+  }
+  // Persist locally
+  try{const raw=localStorage.getItem(LS_DATA);if(raw){const d=JSON.parse(raw);d.actual=DATA.actual;localStorage.setItem(LS_DATA,JSON.stringify(d));}}catch(e){}
+  // PATCH to Firebase
+  if(SYNC.enabled&&SYNC.dbUrl){
+    try{
+      const t=await getAuthToken();
+      const url=fbActualBase()+(t?'?auth='+t:'');
+      const patch={};
+      patch[key]=DATA.actual[key]!==undefined?DATA.actual[key]:null;
+      await fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+    }catch(e){showToast('⚠️ Opslaan mislukt — lokaal bewaard');return;}
+  }
+  showToast(DATA.actual[key]!==undefined?`⏱ ${DATA.actual[key]}u opgeslagen`:'⏱ Uren verwijderd');
+  render();
 }
 
 function saveSetup(){
