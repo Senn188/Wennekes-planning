@@ -81,9 +81,11 @@ function applyData(d){
   if(d.requests)DATA.requests=d.requests; else if(!DATA.requests)DATA.requests={};
   if(d.leaveNotes)DATA.leaveNotes=d.leaveNotes; else if(!DATA.leaveNotes)DATA.leaveNotes={};
 }
-function fbBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning.json';}
-function fbActualBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning/actual.json';}
-function fbRequestBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning/requests.json';}
+function fbBase(path){return SYNC.dbUrl.replace(/\/$/,'')+'/planning/'+(path||'')+'.json';}
+function fbActualBase(){return fbBase('actual');}
+function fbRequestBase(){return fbBase('requests');}
+// Paden die werknemers mogen lezen (geen auditlog, geen root)
+const WORKER_PATHS=['persons','wns','asgn','leave','leaveNotes','actual','requests'];
 
 async function getAuthToken(){
   if(_authToken&&Date.now()<_tokenExpiry)return _authToken;
@@ -102,11 +104,18 @@ async function pullFromFirebase(){
   if(!SYNC.enabled||!SYNC.dbUrl)return false;
   try{
     const t=await getAuthToken();
-    const url=fbBase()+(t?'?auth='+t:'');
-    const r=await fetch(url);
-    if(!r.ok)return false;
-    const d=await r.json();
-    if(d&&d.persons){applyData(d);try{localStorage.setItem(LS_DATA,JSON.stringify(d));}catch(e){}return true;}
+    const auth=t?'?auth='+t:'';
+    // Haal elk pad afzonderlijk op — werknemer heeft geen leestoegang op /planning root
+    const results=await Promise.all(WORKER_PATHS.map(p=>
+      fetch(fbBase(p)+auth).then(r=>r.ok?r.json():null).catch(()=>null)
+    ));
+    const d={};
+    WORKER_PATHS.forEach((p,i)=>{if(results[i]!==null&&results[i]!==undefined)d[p]=results[i];});
+    if(d.persons){
+      applyData(d);
+      try{localStorage.setItem(LS_DATA,JSON.stringify(d));}catch(e){}
+      return true;
+    }
     return false;
   }catch(e){return false;}
 }
@@ -116,33 +125,32 @@ async function startRealtimeSync(){
   if(esConn){esConn.close();esConn=null;}
   if(!SYNC.enabled||!SYNC.dbUrl)return;
   const token=await getAuthToken();
-  const url=fbBase()+(token?'?auth='+token:'');
+  // Luister op /planning/asgn — werknemer heeft hier leestoegang, niet op de root
+  const url=fbBase('asgn')+(token?'?auth='+token:'');
   let firstEvent=true;
   try{
     esConn=new EventSource(url);
     esConn.addEventListener('put',e=>{
       try{
-        const msg=JSON.parse(e.data);
         if(firstEvent){firstEvent=false;return;}
-        if(msg.data&&msg.data.persons){
-          // Check for request status changes before applying
+        // Haal bij elke wijziging alle toegestane paden opnieuw op
+        const oldRequests=JSON.parse(JSON.stringify(DATA.requests||{}));
+        pullFromFirebase().then(ok=>{
+          if(!ok)return;
           const pid=AUTH.pid;
           let toastMsg='🔄 Planning bijgewerkt';
-          if(pid&&msg.data.requests){
-            const newReqs=msg.data.requests;
-            const oldReqs=DATA.requests||{};
+          if(pid){
+            const newReqs=DATA.requests||{};
             for(const id of Object.keys(newReqs)){
-              const nr=newReqs[id];const or=oldReqs[id];
+              const nr=newReqs[id];const or=oldRequests[id];
               if(nr&&nr.pid===pid&&or&&or.status!==nr.status){
                 if(nr.status==='approved')toastMsg='✅ Verlofaanvraag goedgekeurd!';
                 else if(nr.status==='rejected')toastMsg='❌ Verlofaanvraag afgewezen';
               }
             }
           }
-          applyData(msg.data);
-          try{localStorage.setItem(LS_DATA,JSON.stringify(msg.data));}catch(er){}
           render();showToast(toastMsg,3000);
-        }
+        });
       }catch(err){}
     });
     const refreshIn=Math.max(30000,_tokenExpiry-Date.now()-60000);

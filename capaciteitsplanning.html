@@ -102,6 +102,7 @@ function fdDate(d){return fd(d.getFullYear(),d.getMonth(),d.getDate());}
 function getWeekNr(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+3-(dt.getDay()+6)%7);const w1=new Date(dt.getFullYear(),0,4);return 1+Math.round(((dt-w1)/86400000-3+(w1.getDay()+6)%7)/7);}
 const LS_DATA='cap_plan_data_v2';
 const LS_SYNC='cap_plan_sync_v2';
+const LS_PLANNER='cap_plan_planner_v1';
 
 // ── Nederlandse feestdagen ────────────────────────────────────
 function easterDate(y){
@@ -164,7 +165,7 @@ let S={
     {id:1,label:'WN-001',needed:80,color:COLORS[0],desc:'',imgs:[],pdfUrls:[]},
     {id:2,label:'WN-002',needed:40,color:COLORS[1],desc:'',imgs:[],pdfUrls:[]},
   ],
-  asgn:{},leave:{},actual:{},auditlog:[],requests:{},leaveNotes:{},modal:null,dataModal:null,wnEditModal:null,rangeModal:null,recurringModal:null,rejectModal:null,npid:4,nwid:3,viewStart:getViewMonday(now),instTab:'personen'
+  asgn:{},leave:{},actual:{},auditlog:[],requests:{},leaveNotes:{},modal:null,dataModal:null,wnEditModal:null,rangeModal:null,recurringModal:null,rejectModal:null,showPlannerLogin:false,plannerLoginErr:'',npid:4,nwid:3,viewStart:getViewMonday(now),instTab:'personen'
 };
 
 let SYNC={dbUrl:'',webApiKey:'',cloudName:'',uploadPreset:'',enabled:false};
@@ -177,6 +178,8 @@ let dragData=null;
 let rangeState=null;
 let _authToken=null;
 let _tokenExpiry=0;
+let _plannerRefreshToken=null;
+let _plannerEmail=null;
 
 function fd(y,m,d){return`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
 function dim(y,m){return new Date(y,m+1,0).getDate();}
@@ -235,17 +238,95 @@ function getExportData(){return{persons:S.persons,wns:S.wns,asgn:S.asgn,leave:S.
 
 function fbBase(){return SYNC.dbUrl.replace(/\/$/,'')+'/planning.json';}
 
+// ── Planner auth (Firebase e-mail/wachtwoord) ────────────────
+function loadPlannerAuth(){try{const r=localStorage.getItem(LS_PLANNER);if(r){const p=JSON.parse(r);_plannerRefreshToken=p.refreshToken||null;_plannerEmail=p.email||null;}}catch(e){}}
+function savePlannerAuth(){try{localStorage.setItem(LS_PLANNER,JSON.stringify({refreshToken:_plannerRefreshToken,email:_plannerEmail}));}catch(e){}}
+function clearPlannerAuth(){_plannerRefreshToken=null;_plannerEmail=null;_authToken=null;_tokenExpiry=0;try{localStorage.removeItem(LS_PLANNER);}catch(e){}}
+
 async function getAuthToken(){
   if(_authToken&&Date.now()<_tokenExpiry)return _authToken;
   if(!SYNC.webApiKey)return null;
+  // Try refresh token
+  if(_plannerRefreshToken){
+    try{
+      const r=await fetch(`https://securetoken.googleapis.com/v1/token?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:_plannerRefreshToken})});
+      if(r.ok){
+        const d=await r.json();
+        _authToken=d.id_token;
+        _plannerRefreshToken=d.refresh_token;
+        _tokenExpiry=Date.now()+(parseInt(d.expires_in||3600)-120)*1000;
+        savePlannerAuth();
+        return _authToken;
+      }else{
+        // Token verlopen of ongeldig — toon login
+        clearPlannerAuth();
+        S.showPlannerLogin=true;render();return null;
+      }
+    }catch(e){}
+  }
+  // Geen refresh token — login vereist
+  if(!S.showPlannerLogin){S.showPlannerLogin=true;render();}
+  return null;
+}
+
+async function plannerSignIn(email,pwd){
+  if(!SYNC.webApiKey)return'Sync eerst configureren';
   try{
-    const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})});
-    if(!r.ok)return null;
+    const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pwd,returnSecureToken:true})});
     const d=await r.json();
+    if(!r.ok)return d.error?.message||'Inloggen mislukt';
     _authToken=d.idToken;
+    _plannerRefreshToken=d.refreshToken;
+    _plannerEmail=email;
     _tokenExpiry=Date.now()+(parseInt(d.expiresIn||3600)-120)*1000;
-    return _authToken;
-  }catch(e){return null;}
+    savePlannerAuth();
+    return true;
+  }catch(e){return'Verbinding mislukt';}
+}
+
+async function doPlannerLogin(){
+  const email=document.getElementById('pl-email')?.value?.trim();
+  const pwd=document.getElementById('pl-pwd')?.value||'';
+  if(!email||!pwd){S.plannerLoginErr='Vul e-mail en wachtwoord in.';render();return;}
+  const res=await plannerSignIn(email,pwd);
+  if(res===true){
+    S.showPlannerLogin=false;S.plannerLoginErr='';
+    await pullFromFirebase();startRealtimeSync();render();
+    showToast(`✅ Ingelogd als ${_plannerEmail}`);
+  }else{
+    const msgs={'EMAIL_NOT_FOUND':'E-mailadres niet gevonden.','INVALID_PASSWORD':'Onjuist wachtwoord.','USER_DISABLED':'Account is geblokkeerd.','INVALID_LOGIN_CREDENTIALS':'Onjuiste inloggegevens.'};
+    S.plannerLoginErr=msgs[res]||res;render();
+  }
+}
+
+function plannerSignOut(){
+  if(!confirm('Uitloggen als planner?'))return;
+  clearPlannerAuth();
+  S.showPlannerLogin=true;render();
+  showToast('👋 Uitgelogd');
+}
+
+function bPlannerLogin(){
+  return`<div class="ov" style="z-index:1099;">
+    <div class="modal" style="max-width:380px;">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:44px;margin-bottom:10px;">🔐</div>
+        <h2 style="font-size:20px;font-weight:700;">Planner inloggen</h2>
+        <p style="font-size:13px;color:#64748b;margin-top:6px;">Inloggen met je Firebase-account</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">E-mailadres</label>
+          <input id="pl-email" class="inp" type="email" placeholder="planner@bedrijf.nl" style="width:100%;" value="${esc(_plannerEmail||'')}">
+        </div>
+        <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Wachtwoord</label>
+          <input id="pl-pwd" class="inp" type="password" placeholder="Wachtwoord" style="width:100%;" onkeydown="if(event.key==='Enter')doPlannerLogin()">
+        </div>
+        ${S.plannerLoginErr?`<div style="background:#fee2e2;color:#dc2626;border-radius:8px;padding:9px 12px;font-size:13px;">${esc(S.plannerLoginErr)}</div>`:''}
+        <button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;" onclick="doPlannerLogin()">Inloggen</button>
+        ${!SYNC.enabled?`<p style="font-size:12px;color:#94a3b8;text-align:center;">Sync nog niet geconfigureerd — ga naar ⚙️ Instellingen → Synchronisatie</p>`:''}
+      </div>
+    </div>
+  </div>`;
 }
 
 async function authUrl(){const t=await getAuthToken();return fbBase()+(t?'?auth='+t:'');}
@@ -360,6 +441,11 @@ function buildApp(){
       <div class="sync-badge" id="sync-badge" onclick="setTab('instellingen');setInstTab('sync')" style="cursor:pointer;" title="Synchronisatie-instellingen">
         <span class="sync-dot" style="background:${syncDot}"></span>${syncLbl}
       </div>
+      ${_plannerEmail?`<div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 10px 3px 6px;">
+        <span style="font-size:16px;">🔐</span>
+        <span style="font-size:11px;font-weight:600;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(_plannerEmail)}">${esc(_plannerEmail)}</span>
+        <button onclick="plannerSignOut()" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:11px;padding:0;margin-left:2px;" title="Uitloggen">✕</button>
+      </div>`:`<button class="btn btn-gst btn-sm" onclick="S.showPlannerLogin=true;render()">🔐 Inloggen</button>`}
     </div>
   </div>
   <div class="tabs">
@@ -373,7 +459,8 @@ function buildApp(){
   ${S.wnEditModal?bWnEditModal():''}
   ${S.rangeModal?bRangeModal():''}
   ${S.recurringModal?bRecurringModal():''}
-  ${S.rejectModal?bRejectModal():''}`;
+  ${S.rejectModal?bRejectModal():''}
+  ${S.showPlannerLogin?bPlannerLogin():''}`;
 }
 
 function bPlanning(){
@@ -1506,8 +1593,16 @@ function applyRecurring(){
 }
 
 document.addEventListener('mouseup',finishRange);
-loadSyncConfig();loadLocal();render();
-if(SYNC.enabled){pullFromFirebase().then(changed=>{if(changed)render();startRealtimeSync();});}
+loadSyncConfig();loadPlannerAuth();loadLocal();render();
+if(SYNC.enabled){
+  if(_plannerRefreshToken){
+    // Refresh token aanwezig — haal data op en start sync
+    pullFromFirebase().then(changed=>{if(changed)render();startRealtimeSync();});
+  }else{
+    // Sync geconfigureerd maar niet ingelogd — toon login
+    S.showPlannerLogin=true;render();
+  }
+}
 </script>
 </body>
 </html>
