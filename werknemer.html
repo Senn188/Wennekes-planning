@@ -52,6 +52,21 @@ function pWorks(p,y,m,d){const dow=new Date(y,m,d).getDay();return(p.wd||[1,2,3,
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function showToast(msg,dur=2500){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
 
+// ── Wachtwoord hashing (PBKDF2 — zelfde als capaciteitsplanning.html) ──
+async function hashPassword(pwd){
+  if(!pwd)return'';
+  const enc=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',enc.encode(pwd),{name:'PBKDF2'},false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode('cap-planning-salt-v1'),iterations:100000,hash:'SHA-256'},key,256);
+  return Array.from(new Uint8Array(bits)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function isHashed(s){return typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);}
+async function checkPwd(input,stored){
+  if(!stored)return true;
+  if(isHashed(stored))return(await hashPassword(input))===stored;
+  return input===stored; // legacy: oud plaintext wachtwoord — werkt nog tot admin het reset
+}
+
 function saveAuth(){try{localStorage.setItem(LS_AUTH,JSON.stringify(AUTH));}catch(e){}}
 function loadAuth(){try{const r=localStorage.getItem(LS_AUTH);if(r)AUTH={...AUTH,...JSON.parse(r)};}catch(e){}}
 function saveSyncConfig(){try{localStorage.setItem(LS_SYNC,JSON.stringify({dbUrl:SYNC.dbUrl,webApiKey:SYNC.webApiKey,enabled:SYNC.enabled}));}catch(e){}}
@@ -286,13 +301,13 @@ function saveSetup(){
     else{showToast('✅ Verbonden!');startRealtimeSync();ST.screen='login';render();}
   });
 }
-function doLogin(){
+async function doLogin(){
   const pid=parseInt(document.getElementById('l-pid')?.value)||null;
   const pwd=document.getElementById('l-pwd')?.value||'';
   if(!pid){ST.loginErr='Kies je naam.';render();return;}
   const p=gp(pid);
   if(!p){ST.loginErr='Persoon niet gevonden.';render();return;}
-  if((p.pwd||'')&&p.pwd!==pwd){ST.loginErr='Onjuist wachtwoord.';render();return;}
+  if(p.pwd&&!(await checkPwd(pwd,p.pwd))){ST.loginErr='Onjuist wachtwoord.';render();return;}
   AUTH={pid};saveAuth();ST.loginErr='';ST.loginPid=null;ST.screen='planning';render();showToast(`👋 Welkom, ${p.name}!`);
 }
 function logout(){AUTH={pid:null};saveAuth();ST.screen='login';ST.loginErr='';render();}
