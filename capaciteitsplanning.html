@@ -65,6 +65,9 @@ textarea.jtxt{width:100%;height:160px;border:1px solid #d1d5db;border-radius:8px
 .wd-btn{border:1px solid #cbd5e1;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;background:#fff;color:#64748b;transition:all .15s;line-height:1.4;}
 .wd-btn.on{background:#2563eb;color:#fff;border-color:#2563eb;}
 .wd-btn:hover{opacity:.8;}
+@keyframes ai-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.ai-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#3b82f6;animation:ai-pulse 1.2s ease-in-out infinite;}
+.ai-dot:nth-child(2){animation-delay:.2s;}.ai-dot:nth-child(3){animation-delay:.4s;}
 #toast{position:fixed;bottom:20px;right:20px;background:#1e293b;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(8px);transition:opacity .3s,transform .3s;pointer-events:none;}
 #toast.show{opacity:1;transform:translateY(0);}
 .info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#1e3a8a;line-height:1.6;}
@@ -165,10 +168,10 @@ let S={
     {id:1,label:'WN-001',needed:80,color:COLORS[0],desc:'',imgs:[],pdfUrls:[]},
     {id:2,label:'WN-002',needed:40,color:COLORS[1],desc:'',imgs:[],pdfUrls:[]},
   ],
-  asgn:{},leave:{},actual:{},auditlog:[],requests:{},leaveNotes:{},modal:null,dataModal:null,wnEditModal:null,rangeModal:null,recurringModal:null,rejectModal:null,showPlannerLogin:false,plannerLoginErr:'',npid:4,nwid:3,viewStart:getViewMonday(now),instTab:'personen'
+  asgn:{},leave:{},actual:{},auditlog:[],requests:{},leaveNotes:{},modal:null,dataModal:null,wnEditModal:null,rangeModal:null,recurringModal:null,rejectModal:null,showPlannerLogin:false,plannerLoginErr:'',aiPanel:null,showWarnings:true,npid:4,nwid:3,viewStart:getViewMonday(now),instTab:'personen'
 };
 
-let SYNC={dbUrl:'',webApiKey:'',cloudName:'',uploadPreset:'',enabled:false};
+let SYNC={dbUrl:'',webApiKey:'',cloudName:'',uploadPreset:'',anthropicKey:'',enabled:false};
 let syncStatus='off';
 let lastSyncTime=null;
 let pushTimer=null;
@@ -217,8 +220,8 @@ function saveLocal(){
 function loadLocal(){
   try{const raw=localStorage.getItem(LS_DATA);if(!raw)return false;applyData(JSON.parse(raw));return true;}catch(e){return false;}
 }
-function saveSyncConfig(){try{localStorage.setItem(LS_SYNC,JSON.stringify({dbUrl:SYNC.dbUrl,webApiKey:SYNC.webApiKey,cloudName:SYNC.cloudName||'',uploadPreset:SYNC.uploadPreset||'',enabled:SYNC.enabled}));}catch(e){}}
-function loadSyncConfig(){try{const raw=localStorage.getItem(LS_SYNC);if(raw){const p=JSON.parse(raw);if(p.dbUrl)SYNC={dbUrl:p.dbUrl,webApiKey:p.webApiKey||'',cloudName:p.cloudName||'',uploadPreset:p.uploadPreset||'',enabled:!!p.enabled};}}catch(e){}}
+function saveSyncConfig(){try{localStorage.setItem(LS_SYNC,JSON.stringify({dbUrl:SYNC.dbUrl,webApiKey:SYNC.webApiKey,cloudName:SYNC.cloudName||'',uploadPreset:SYNC.uploadPreset||'',anthropicKey:SYNC.anthropicKey||'',enabled:SYNC.enabled}));}catch(e){}}
+function loadSyncConfig(){try{const raw=localStorage.getItem(LS_SYNC);if(raw){const p=JSON.parse(raw);if(p.dbUrl)SYNC={dbUrl:p.dbUrl,webApiKey:p.webApiKey||'',cloudName:p.cloudName||'',uploadPreset:p.uploadPreset||'',anthropicKey:p.anthropicKey||'',enabled:!!p.enabled};}}catch(e){}}
 function applyData(d){
   if(d.persons)S.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||'',email:p.email||'',fbCreated:p.fbCreated||false}));
   if(d.wns)S.wns=d.wns.map(w=>({...w,desc:w.desc||'',imgs:w.imgs||[],pdfUrls:w.pdfUrls||[]}));
@@ -441,6 +444,7 @@ function buildApp(){
       <div class="sync-badge" id="sync-badge" onclick="setTab('instellingen');setInstTab('sync')" style="cursor:pointer;" title="Synchronisatie-instellingen">
         <span class="sync-dot" style="background:${syncDot}"></span>${syncLbl}
       </div>
+      ${SYNC.anthropicKey?`<button class="btn btn-gst btn-sm" onclick="openAiPanel('analyse')" title="AI Planningsassistent openen" style="background:rgba(59,130,246,.3);border:1px solid rgba(99,179,237,.5);">🤖 AI-assistent</button>`:''}
       ${_plannerEmail?`<div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 10px 3px 6px;">
         <span style="font-size:16px;">🔐</span>
         <span style="font-size:11px;font-weight:600;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(_plannerEmail)}">${esc(_plannerEmail)}</span>
@@ -452,7 +456,7 @@ function buildApp(){
     ${['planning','capaciteit','uren','instellingen'].map(t=>{const pendingCount=t==='instellingen'?Object.values(S.requests||{}).filter(r=>r.status==='pending').length:0;return`<button class="tab ${S.tab===t?'active':''}" onclick="setTab('${t}')">${{planning:'📋 Planning',capaciteit:'📊 Capaciteit',uren:'⏱ Uren',instellingen:'⚙️ Instellingen'}[t]}${pendingCount?` <span style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:10px;font-weight:700;vertical-align:middle;margin-left:2px;">${pendingCount}</span>`:''}</button>`;}).join('')}
   </div>
   <div class="content">
-    ${S.tab==='planning'?bPlanning():S.tab==='capaciteit'?bCap():S.tab==='uren'?bUren():bInst()}
+    ${bWarnings()}${S.tab==='planning'?bPlanning():S.tab==='capaciteit'?bCap():S.tab==='uren'?bUren():bInst()}
   </div>
   ${S.modal?bModal():''}
   ${S.dataModal?bDataModal():''}
@@ -460,7 +464,8 @@ function buildApp(){
   ${S.rangeModal?bRangeModal():''}
   ${S.recurringModal?bRecurringModal():''}
   ${S.rejectModal?bRejectModal():''}
-  ${S.showPlannerLogin?bPlannerLogin():''}`;
+  ${S.showPlannerLogin?bPlannerLogin():''}
+  ${S.aiPanel!==null&&S.aiPanel!==undefined?bAiPanel():''}`;
 }
 
 function bPlanning(){
@@ -710,6 +715,13 @@ function bSync(){
           </div>
           ${cloudinaryReady()?`<div style="margin-top:8px;font-size:12px;color:#15803d;font-weight:500;">✅ Cloudinary actief — uploads gaan naar <strong>${esc(SYNC.cloudName)}</strong></div>`:`<div style="margin-top:8px;font-size:11px;color:#94a3b8;">Niet ingesteld — afbeeldingen worden als base64 opgeslagen (minder schaalbaar).</div>`}
         </div>
+        <div style="border-top:1px solid #e2e8f0;margin-top:6px;padding-top:14px;">
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">🤖 Anthropic AI <span style="font-weight:400;color:#94a3b8;">(optioneel — voor AI-planningsassistent)</span></div>
+          <div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">API-sleutel</label>
+            <input id="cfg-anthropic" class="inp" style="width:100%;" placeholder="sk-ant-..." type="password" value="${esc(SYNC.anthropicKey||'')}">
+          </div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:5px;">${SYNC.anthropicKey?'✅ AI-assistent actief — gebruik de 🤖 knop rechtsboven':'Haal je sleutel op via <strong>console.anthropic.com</strong>. Sleutel wordt lokaal opgeslagen, nooit verstuurd naar derden.'}</div>
+        </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
           <button class="btn btn-p" onclick="connectSync()">🔗 Verbinden</button>
           ${configured?`<button class="btn btn-g" onclick="manualPush()">⬆ Nu uploaden</button>`:''}
@@ -922,7 +934,8 @@ async function connectSync(){
   const cloudName=document.getElementById('cfg-cloud')?.value?.trim()||'';
   const uploadPreset=document.getElementById('cfg-preset')?.value?.trim()||'';
   if(!dbUrl||!webApiKey){showToast('⚠️ Vul Database URL en API-sleutel in');return;}
-  SYNC={dbUrl,webApiKey,cloudName,uploadPreset,enabled:true};_authToken=null;_tokenExpiry=0;saveSyncConfig();showToast('🔄 Verbinding testen...',4000);
+  const anthropicKey=document.getElementById('cfg-anthropic')?.value?.trim()||SYNC.anthropicKey||'';
+  SYNC={dbUrl,webApiKey,cloudName,uploadPreset,anthropicKey,enabled:true};_authToken=null;_tokenExpiry=0;saveSyncConfig();showToast('🔄 Verbinding testen...',4000);
   const ok=await pullFromFirebase();
   if(ok){startRealtimeSync();render();showToast('✅ Verbonden! Data opgehaald uit Firebase.');}
   else{
@@ -1635,6 +1648,238 @@ function applyRecurring(){
   S.recurringModal=null;
   onChange();render();
   showToast(`✅ ${count} dagdelen ingepland`);
+}
+
+// ── Layer 1: Conflict detectie ────────────────────────────────
+function detectConflicts(){
+  const conflicts=[];
+  const today=parseDs(TSTR);
+
+  // 1. Verlof + toewijzing op zelfde dag
+  for(const[key,wid] of Object.entries(S.asgn)){
+    const leaveVal=(S.leave||{})[key];
+    if(leaveVal&&leaveVal!=='G'){
+      const parts=key.split('_');
+      const pid=parseInt(parts[0]);
+      const ds=parts.slice(1).join('_');
+      const p=gp(pid);const w=gwn(wid);
+      if(p&&w)conflicts.push({level:'error',type:'leave-conflict',
+        msg:`${p.name} heeft ${leaveVal==='V'?'verlof':'ziek'} op ${ds} maar is ingepland op ${w.label}`,
+        pid,ds,wnId:wid});
+    }
+  }
+
+  // 2. Deadline risico — WN nadert deadline maar niet volledig gepland
+  for(const w of S.wns){
+    if(!w.deadline)continue;
+    const dl=deadlineStatus(w.deadline);
+    if(!dl||!dl.warn)continue;
+    let planned=0;
+    for(const[k,wid] of Object.entries(S.asgn)){
+      if(wid!==w.id)continue;
+      const p=gp(parseInt(k.split('_')[0]));
+      if(p)planned+=p.hrs;
+    }
+    const pct=w.needed>0?planned/w.needed:1;
+    if(pct<1)conflicts.push({level:'warning',type:'deadline-risk',
+      msg:`${w.label}: deadline ${w.deadline} nadert, nog ${w.needed-planned}u te plannen (${Math.round(pct*100)}%)`,
+      wnId:w.id});
+  }
+
+  // 3. WN heeft deadline binnenkort maar niemand ingepland
+  for(const w of S.wns){
+    if(!w.deadline)continue;
+    const dl=parseDs(w.deadline);
+    if(dl<today)continue;
+    const diff=Math.round((dl-today)/86400000);
+    if(diff>14)continue;
+    const hasAsgn=Object.values(S.asgn).some(wid=>wid===w.id);
+    if(!hasAsgn)conflicts.push({level:'warning',type:'unplanned-wn',
+      msg:`${w.label}: deadline over ${diff} dag${diff===1?'':'en'} maar nog niemand ingepland`,
+      wnId:w.id});
+  }
+
+  // 4. Verlofaanvragen te lang open
+  const oldPending=Object.values(S.requests||{}).filter(r=>r.status==='pending'&&Date.now()-r.submittedAt>2*86400000);
+  if(oldPending.length)conflicts.push({level:'warning',type:'pending-requests',
+    msg:`${oldPending.length} verlofaanvra${oldPending.length===1?'ag':'gen'} wacht al meer dan 2 dagen op goedkeuring`});
+
+  return conflicts;
+}
+
+function bWarnings(){
+  if(!S.showWarnings)return'';
+  const conflicts=detectConflicts();
+  if(!conflicts.length)return'';
+  const errors=conflicts.filter(c=>c.level==='error');
+  const bc=errors.length?'#ef4444':'#f59e0b';
+  const bg=errors.length?'#fff1f2':'#fffbeb';
+  return`<div style="background:${bg};border-left:4px solid ${bc};border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;">
+    <div style="flex:1;">
+      <div style="font-size:12px;font-weight:700;color:${errors.length?'#dc2626':'#92400e'};margin-bottom:5px;">${errors.length?'🔴':'🟡'} ${conflicts.length} aandachtspunt${conflicts.length===1?'':'en'} gedetecteerd</div>
+      ${conflicts.slice(0,3).map(c=>`<div style="font-size:12px;color:#374151;margin-bottom:2px;">${c.level==='error'?'🔴':'🟡'} ${esc(c.msg)}</div>`).join('')}
+      ${conflicts.length>3?`<div style="font-size:11px;color:#94a3b8;margin-top:3px;">+${conflicts.length-3} meer — open AI-assistent voor volledig overzicht</div>`:''}
+    </div>
+    <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;">
+      ${SYNC.anthropicKey?`<button onclick="openAiPanel('analyse')" style="background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;">🤖 AI-advies</button>`:''}
+      <button onclick="S.showWarnings=false;render()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:18px;padding:0 3px;line-height:1;" title="Verberg">✕</button>
+    </div>
+  </div>`;
+}
+
+// ── Layer 2: Claude AI-assistent ──────────────────────────────
+const AI_SYSTEM=`Je bent een ervaren capaciteitsplanner voor een productiebedrijf. Je helpt de planner om de bezetting te optimaliseren en problemen te voorkomen.
+
+Taken:
+- Analyseer de planning op conflicten, risico's en inefficiënties
+- Geef concrete, beknopte adviezen (max 3-4 zinnen per punt)
+- Prioriteer op impact: deadlinerisico > verlofconflict > onderbezetting
+- Wees proactief: benoem ook wat goed gaat
+- Gebruik altijd de namen van personen en werknummers uit de context
+- Antwoord altijd in het Nederlands, beknopt en to-the-point
+
+Structuur bij analyse:
+🔴 Kritisch (direct actie) | 🟡 Aandacht nodig | ✅ Gaat goed | 📋 Aanbevelingen`;
+
+function buildAiContext(){
+  const today=TSTR;
+  const conflicts=detectConflicts();
+  const capData=cap();
+
+  const personSummary=S.persons.map(p=>{
+    const wds=(p.wd||[1,2,3,4,5]).map(d=>['Zo','Ma','Di','Wo','Do','Vr','Za'][d]).join(',');
+    return`${p.name}: ${p.hrs}u/dag, werkdagen: ${wds}`;
+  });
+
+  const wnSummary=capData.map(w=>{
+    const dl=w.deadline?`deadline ${w.deadline}`:'geen deadline';
+    return`${w.label}: ${w.pl}/${w.needed}u ingepland (${w.pct}%), ${dl}`;
+  });
+
+  const upcomingLeave=[];
+  let cur=new Date(today);
+  for(let i=0;i<14;i++){
+    const ds=fdDate(cur);
+    for(const p of S.persons){
+      const lv=(S.leave||{})[`${p.id}_${ds}`];
+      if(lv)upcomingLeave.push(`${p.name}: ${lv==='V'?'verlof':lv==='Z'?'ziek':lv==='G'?'gedeeltelijk':'bijzonder'} op ${ds}`);
+    }
+    cur=addDays(cur,1);
+  }
+
+  const pending=Object.values(S.requests||{}).filter(r=>r.status==='pending').length;
+
+  return`VANDAAG: ${today}
+PERSONEN (${S.persons.length}):
+${personSummary.join('\n')||'Geen'}
+WERKNUMMERS EN CAPACITEIT:
+${wnSummary.join('\n')||'Geen werknummers'}
+VERLOF KOMENDE 14 DAGEN:
+${upcomingLeave.join('\n')||'Geen verlof gepland'}
+OPENSTAANDE VERLOFAANVRAGEN: ${pending}
+GEDETECTEERDE CONFLICTEN (${conflicts.length}):
+${conflicts.map(c=>`[${c.level.toUpperCase()}] ${c.msg}`).join('\n')||'Geen'}`;
+}
+
+async function callClaude(messages){
+  if(!SYNC.anthropicKey)throw new Error('Geen Anthropic API-sleutel geconfigureerd. Ga naar ⚙️ Instellingen → Synchronisatie.');
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':SYNC.anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-ipc':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1024,system:AI_SYSTEM,messages})
+  });
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
+  const d=await r.json();
+  return d.content[0]?.text||'(geen antwoord)';
+}
+
+async function openAiPanel(mode){
+  if(!SYNC.anthropicKey){showToast('⚠️ Voer een Anthropic API-sleutel in bij ⚙️ Instellingen → Synchronisatie',4000);return;}
+  S.aiPanel={messages:[],loading:true};
+  render();
+  const ctx=buildAiContext();
+  const prompt=mode==='analyse'
+    ?'Analyseer de huidige planning. Geef een overzicht van kritische problemen, waarschuwingen en positieve punten. Sluit af met de 2-3 meest urgente acties voor de planner.'
+    :'Hallo! Geef een korte introductie en vraag waarmee je de planner kunt helpen.';
+  try{
+    const reply=await callClaude([{role:'user',content:`PLANNINGSCONTEXT:\n${ctx}\n\n${prompt}`}]);
+    S.aiPanel.messages=[
+      {role:'user',content:`PLANNINGSCONTEXT:\n${ctx}\n\n${prompt}`,display:null},
+      {role:'assistant',content:reply}
+    ];
+    S.aiPanel.loading=false;
+  }catch(e){
+    S.aiPanel.messages=[{role:'assistant',content:`❌ Fout: ${e.message}`}];
+    S.aiPanel.loading=false;
+  }
+  render();
+  setTimeout(()=>{const el=document.getElementById('ai-msgs');if(el)el.scrollTop=el.scrollHeight;},80);
+}
+
+async function sendAiMessage(){
+  const inp=document.getElementById('ai-inp');
+  const txt=inp?.value?.trim();
+  if(!txt||!S.aiPanel)return;
+  inp.value='';
+  const ctx=buildAiContext();
+  S.aiPanel.messages.push({role:'user',content:`PLANNINGSCONTEXT:\n${ctx}\n\nVRAAG: ${txt}`,display:txt});
+  S.aiPanel.loading=true;
+  render();
+  const apiMsgs=S.aiPanel.messages.map(m=>({role:m.role,content:m.content}));
+  try{
+    const reply=await callClaude(apiMsgs);
+    S.aiPanel.messages.push({role:'assistant',content:reply});
+    S.aiPanel.loading=false;
+  }catch(e){
+    S.aiPanel.messages.push({role:'assistant',content:`❌ Fout: ${e.message}`});
+    S.aiPanel.loading=false;
+  }
+  render();
+  setTimeout(()=>{const el=document.getElementById('ai-msgs');if(el)el.scrollTop=el.scrollHeight;},80);
+}
+
+function closeAiPanel(){S.aiPanel=null;render();}
+
+function bAiPanel(){
+  if(!S.aiPanel)return'';
+  const msgs=S.aiPanel.messages;
+  const loading=S.aiPanel.loading;
+  const visible=msgs.filter(m=>m.display!==null);
+
+  function fmtMsg(txt){
+    return esc(txt)
+      .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\n/g,'<br>');
+  }
+
+  const nConflicts=detectConflicts().length;
+  return`<div style="position:fixed;bottom:20px;right:20px;width:430px;max-width:calc(100vw - 32px);background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.22);z-index:1090;display:flex;flex-direction:column;max-height:calc(100vh - 80px);border:1px solid #e2e8f0;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <span style="font-size:22px;">🤖</span>
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:14px;">AI Planningsassistent</div>
+        <div style="font-size:10px;opacity:.8;">claude-haiku · ${nConflicts} aandachtspunt${nConflicts===1?'':'en'}</div>
+      </div>
+      <button onclick="closeAiPanel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;cursor:pointer;font-size:12px;padding:4px 10px;font-weight:700;">✕ Sluiten</button>
+    </div>
+    <div id="ai-msgs" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:180px;max-height:400px;">
+      ${!visible.length&&loading?`<div style="text-align:center;color:#94a3b8;padding:28px 0;font-size:13px;"><div style="margin-bottom:8px;"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span></div>Planning analyseren...</div>`:''}
+      ${visible.map(m=>{
+        if(m.role==='user')return`<div style="display:flex;justify-content:flex-end;"><div style="background:#2563eb;color:#fff;border-radius:12px 12px 2px 12px;padding:9px 13px;max-width:85%;font-size:13px;line-height:1.5;">${esc(m.display)}</div></div>`;
+        return`<div style="display:flex;gap:8px;align-items:flex-start;"><span style="font-size:18px;flex-shrink:0;margin-top:3px;">🤖</span><div style="background:#f1f5f9;border-radius:2px 12px 12px 12px;padding:10px 13px;max-width:90%;font-size:13px;line-height:1.6;color:#1e293b;">${fmtMsg(m.content)}</div></div>`;
+      }).join('')}
+      ${loading&&visible.length?`<div style="display:flex;gap:8px;align-items:center;"><span style="font-size:18px;">🤖</span><div style="background:#f1f5f9;border-radius:2px 12px 12px 12px;padding:10px 13px;"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span></div></div>`:''}
+    </div>
+    ${!loading&&visible.length===1?`<div style="padding:0 14px 10px;display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;">
+      <button onclick="(function(){document.getElementById('ai-inp').value='Wat zijn de meest urgente acties?';sendAiMessage();})()" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:5px 11px;cursor:pointer;font-size:11px;color:#374151;font-weight:500;">Urgente acties?</button>
+      <button onclick="(function(){document.getElementById('ai-inp').value='Wie heeft de komende 2 weken verlof?';sendAiMessage();})()" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:5px 11px;cursor:pointer;font-size:11px;color:#374151;font-weight:500;">Aankomend verlof</button>
+      <button onclick="(function(){document.getElementById('ai-inp').value='Welke werknummers lopen achter?';sendAiMessage();})()" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:5px 11px;cursor:pointer;font-size:11px;color:#374151;font-weight:500;">WN achterstand</button>
+    </div>`:''}
+    <div style="padding:11px 14px;border-top:1px solid #e2e8f0;display:flex;gap:7px;flex-shrink:0;">
+      <input id="ai-inp" class="inp" placeholder="Stel een vraag over de planning..." style="flex:1;font-size:13px;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage();}">
+      <button onclick="sendAiMessage()" style="background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;padding:8px 14px;font-size:13px;font-weight:600;${loading?'opacity:.5;':''}" ${loading?'disabled':''}>▶</button>
+    </div>
+  </div>`;
 }
 
 document.addEventListener('mouseup',finishRange);
