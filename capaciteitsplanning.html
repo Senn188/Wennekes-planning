@@ -157,9 +157,9 @@ function deadlineStatus(ds){
 let S={
   tab:'planning',yr:now.getFullYear(),mo:now.getMonth(),
   persons:[
-    {id:1,name:'Persoon 1',hrs:8,wd:[1,2,3,4,5],pwd:'',email:''},
-    {id:2,name:'Persoon 2',hrs:8,wd:[1,2,3,4,5],pwd:'',email:''},
-    {id:3,name:'Persoon 3',hrs:8,wd:[1,2,3,4,5],pwd:'',email:''},
+    {id:1,name:'Persoon 1',hrs:8,wd:[1,2,3,4,5],pwd:'',email:'',fbCreated:false},
+    {id:2,name:'Persoon 2',hrs:8,wd:[1,2,3,4,5],pwd:'',email:'',fbCreated:false},
+    {id:3,name:'Persoon 3',hrs:8,wd:[1,2,3,4,5],pwd:'',email:'',fbCreated:false},
   ],
   wns:[
     {id:1,label:'WN-001',needed:80,color:COLORS[0],desc:'',imgs:[],pdfUrls:[]},
@@ -220,7 +220,7 @@ function loadLocal(){
 function saveSyncConfig(){try{localStorage.setItem(LS_SYNC,JSON.stringify({dbUrl:SYNC.dbUrl,webApiKey:SYNC.webApiKey,cloudName:SYNC.cloudName||'',uploadPreset:SYNC.uploadPreset||'',enabled:SYNC.enabled}));}catch(e){}}
 function loadSyncConfig(){try{const raw=localStorage.getItem(LS_SYNC);if(raw){const p=JSON.parse(raw);if(p.dbUrl)SYNC={dbUrl:p.dbUrl,webApiKey:p.webApiKey||'',cloudName:p.cloudName||'',uploadPreset:p.uploadPreset||'',enabled:!!p.enabled};}}catch(e){}}
 function applyData(d){
-  if(d.persons)S.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||'',email:p.email||''}));
+  if(d.persons)S.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||'',email:p.email||'',fbCreated:p.fbCreated||false}));
   if(d.wns)S.wns=d.wns.map(w=>({...w,desc:w.desc||'',imgs:w.imgs||[],pdfUrls:w.pdfUrls||[]}));
   if(d.asgn)S.asgn=d.asgn;
   if(d.leave)S.leave=d.leave; else if(!S.leave)S.leave={};
@@ -623,15 +623,18 @@ function bInstPersonen(){
           ${DOW_ORDER.map(dow=>`<button class="wd-btn ${wd.includes(dow)?'on':''}" onclick="toggleWd(${p.id},${dow})">${DNMS[dow]}</button>`).join('')}
           <span style="font-size:10px;color:#94a3b8;margin-left:4px;">${wd.length*p.hrs}u/week</span>
         </div>
-        <div class="prow2" style="margin-top:6px;">
-          <span style="font-size:10px;color:#64748b;margin-right:4px;">📧</span>
-          <input class="inp-sm" type="email" placeholder="naam@weldingsupport.nl" style="flex:1;max-width:220px;" value="${esc(p.email||'')}" onchange="upP(${p.id},'email',this.value.trim().toLowerCase())" title="Firebase-emailadres — koppelt automatisch na inloggen">
-          ${p.email?`<span style="font-size:10px;color:#15803d;white-space:nowrap;">✓ Gekoppeld</span>`:`<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">Niet gekoppeld</span>`}
-        </div>
-        <div class="prow2" style="margin-top:6px;">
-          <span style="font-size:10px;color:#64748b;margin-right:4px;">🔑</span>
-          <input class="inp-sm" type="password" placeholder="${p.pwd?(isHashed(p.pwd)?'Beveiligd — typ om te wijzigen':'Oud wachtwoord — typ om te beveiligen'):'Geen wachtwoord'}" style="flex:1;max-width:180px;" onchange="if(this.value.trim())setPwd(${p.id},this.value.trim())">
-          ${p.pwd?`<button onclick="setPwd(${p.id},'')" title="Wachtwoord verwijderen" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:11px;white-space:nowrap;padding:0 2px;">✕ Wissen</button><span style="font-size:10px;color:${isHashed(p.pwd)?'#15803d':'#f59e0b'};white-space:nowrap;">${isHashed(p.pwd)?'🔒 Versleuteld':'⚠️ Niet versleuteld'}</span>`:'<span style="font-size:10px;color:#94a3b8;">Vrij toegankelijk</span>'}
+        <div style="margin-top:8px;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+          <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:6px;letter-spacing:.04em;">TOEGANG</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <input autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" class="inp-sm" type="email" placeholder="naam@bedrijf.nl" style="flex:1;min-width:140px;max-width:200px;" value="${esc(p.email||'')}" onchange="upP(${p.id},'email',this.value.trim().toLowerCase())">
+            ${p.email
+              ? p.fbCreated
+                ? `<span style="font-size:10px;font-weight:600;color:#15803d;white-space:nowrap;">✓ Account actief</span>
+                   <button onclick="sendFbPasswordReset('${esc(p.email)}')" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:600;color:#475569;white-space:nowrap;">📧 Nieuw wachtwoord</button>`
+                : `<button onclick="createFbAccount(${p.id})" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:10px;font-weight:700;color:#2563eb;white-space:nowrap;">☁️ Account aanmaken</button>`
+              : `<span style="font-size:10px;color:#94a3b8;">Vul e-mail in om account aan te maken</span>`
+            }
+          </div>
         </div>
       </div>`;}).join('')}${!S.persons.length?'<p style="text-align:center;color:#94a3b8;padding:14px;font-size:13px;">Nog geen personen.</p>':''}</div>
     </div>
@@ -867,7 +870,44 @@ function asgnW(wid){
   logAction({type:'asgn',pid:S.modal.pid,ds:S.modal.ds,before,after:wid===null?undefined:wid,wnId:wid,pName:gp(S.modal.pid)?.name,wnLabel:wid?gwn(wid)?.label:null});
   S.modal=null;onChange();render();
 }
-function addP(){const n=document.getElementById('pn')?.value?.trim();const h=parseInt(document.getElementById('ph')?.value)||8;if(!n||S.persons.length>=15)return;const pid=S.npid++;S.persons.push({id:pid,name:n,hrs:Math.max(1,Math.min(24,h)),wd:[1,2,3,4,5],pwd:''});logAction({type:'person',action:'add',personId:pid,pName:n});onChange();render();}
+// ── Firebase account beheer ───────────────────────────────────
+async function sendFbPasswordReset(email){
+  if(!SYNC.webApiKey){showToast('⚠️ Geen API-sleutel geconfigureerd');return;}
+  try{
+    const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestType:'PASSWORD_RESET',email})});
+    const d=await r.json();
+    if(!r.ok){showToast('❌ '+(d.error?.message==='EMAIL_NOT_FOUND'?'E-mailadres niet gevonden in Firebase':d.error?.message||'Versturen mislukt'));return;}
+    showToast(`📧 Wachtwoord-reset verstuurd naar ${email}`,3500);
+  }catch(e){showToast('❌ Verbinding mislukt');}
+}
+
+async function createFbAccount(pid){
+  const p=gp(pid);if(!p||!p.email){showToast('⚠️ Vul eerst een e-mailadres in');return;}
+  if(!SYNC.webApiKey){showToast('⚠️ Geen API-sleutel geconfigureerd');return;}
+  const btn=event?.target;if(btn){btn.textContent='⏳ Bezig...';btn.disabled=true;}
+  // Tijdelijk wachtwoord — werknemer stelt eigen wachtwoord in via de reset-mail
+  const tmp=[...Array(12)].map(()=>'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#'.charAt(Math.random()*58|0)).join('');
+  try{
+    const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:p.email,password:tmp,returnSecureToken:false})});
+    const d=await r.json();
+    if(!r.ok){
+      if(d.error?.message==='EMAIL_EXISTS'){
+        // Account bestaat al — stuur gewoon een reset-mail
+        await sendFbPasswordReset(p.email);
+        p.fbCreated=true;onChange();render();return;
+      }
+      if(d.error?.message==='OPERATION_NOT_ALLOWED'){showToast('❌ Zet E-mail/wachtwoord-aanmelding aan in Firebase Console → Authentication → Sign-in method',5000);return;}
+      showToast('❌ '+(d.error?.message||'Account aanmaken mislukt'));render();return;
+    }
+    // Stuur meteen een wachtwoord-reset zodat de werknemer zelf een wachtwoord instelt
+    await sendFbPasswordReset(p.email);
+    p.fbCreated=true;
+    onChange();render();
+    showToast(`✅ Account aangemaakt voor ${p.email} — reset-mail verstuurd`,4000);
+  }catch(e){showToast('❌ Verbinding mislukt');render();}
+}
+
+function addP(){const n=document.getElementById('pn')?.value?.trim();const h=parseInt(document.getElementById('ph')?.value)||8;if(!n||S.persons.length>=15)return;const pid=S.npid++;S.persons.push({id:pid,name:n,hrs:Math.max(1,Math.min(24,h)),wd:[1,2,3,4,5],pwd:'',email:'',fbCreated:false});logAction({type:'person',action:'add',personId:pid,pName:n});onChange();render();}
 function rmP(id){if(!confirm('Persoon verwijderen?'))return;const p=gp(id);if(p)logAction({type:'person',action:'delete',personId:id,pName:p.name,personData:{...p}});S.persons=S.persons.filter(p=>p.id!==id);for(const k of Object.keys(S.asgn)){if(k.startsWith(`${id}_`))delete S.asgn[k];}onChange();render();}
 function upP(id,f,v){const p=gp(id);if(p){const before=p[f];p[f]=v;if(f!=='pwd')logAction({type:'person',action:'update',personId:id,pName:p.name,field:f,before,after:v});onChange();}}
 function toggleWd(pid,dow){const p=gp(pid);if(!p)return;if(!p.wd)p.wd=[1,2,3,4,5];const i=p.wd.indexOf(dow);i===-1?p.wd.push(dow):p.wd.splice(i,1);onChange();render();}
