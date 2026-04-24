@@ -41,13 +41,14 @@ const LS_ANON='cap_plan_anon_v1'; // Persistente anonieme Firebase-gebruiker
 
 let SYNC={dbUrl:'',webApiKey:'',enabled:false};
 let _authToken=null,_tokenExpiry=0;
-let _anonRefreshToken=null;
+let _fbRefreshToken=null,_fbEmail='';
 
-function loadAnonAuth(){try{const r=localStorage.getItem(LS_ANON);if(r)_anonRefreshToken=JSON.parse(r).refreshToken||null;}catch(e){}}
-function saveAnonAuth(){try{localStorage.setItem(LS_ANON,JSON.stringify({refreshToken:_anonRefreshToken}));}catch(e){}}
+function loadFbAuth(){try{const r=localStorage.getItem(LS_ANON);if(r){const p=JSON.parse(r);_fbRefreshToken=p.refreshToken||null;_fbEmail=p.email||'';}}catch(e){}}
+function saveFbAuth(){try{localStorage.setItem(LS_ANON,JSON.stringify({refreshToken:_fbRefreshToken,email:_fbEmail}));}catch(e){}}
+function clearFbAuth(){_fbRefreshToken=null;_fbEmail='';_authToken=null;_tokenExpiry=0;try{localStorage.removeItem(LS_ANON);}catch(e){}}
 let DATA={persons:[],wns:[],asgn:{},leave:{},actual:{},requests:{},leaveNotes:{}};
 let AUTH={pid:null};
-let ST={screen:'loading',yr:now.getFullYear(),mo:now.getMonth(),detail:null,loginPid:null,loginErr:'',requestModal:null,reqTab:'nieuw'};
+let ST={screen:'loading',yr:now.getFullYear(),mo:now.getMonth(),detail:null,loginPid:null,loginErr:'',fbLoginErr:'',requestModal:null,reqTab:'nieuw'};
 
 function fd(y,m,d){return`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
 function dim(y,m){return new Date(y,m+1,0).getDate();}
@@ -95,33 +96,61 @@ const WORKER_PATHS=['persons','wns','asgn','leave','leaveNotes','actual','reques
 async function getAuthToken(){
   if(_authToken&&Date.now()<_tokenExpiry)return _authToken;
   if(!SYNC.webApiKey)return null;
-  // Stap 1: bestaande anonieme gebruiker hergebruiken via refresh token
-  if(_anonRefreshToken){
+  // Probeer bestaande sessie te vernieuwen
+  if(_fbRefreshToken){
     try{
-      const r=await fetch(`https://securetoken.googleapis.com/v1/token?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:_anonRefreshToken})});
+      const r=await fetch(`https://securetoken.googleapis.com/v1/token?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:_fbRefreshToken})});
       if(r.ok){
         const d=await r.json();
         _authToken=d.id_token;
-        _anonRefreshToken=d.refresh_token;
+        _fbRefreshToken=d.refresh_token;
         _tokenExpiry=Date.now()+(parseInt(d.expires_in||3600)-120)*1000;
-        saveAnonAuth();
+        saveFbAuth();
         return _authToken;
       }
-      // Refresh token ongeldig — maak nieuwe anonieme gebruiker
-      _anonRefreshToken=null;
+      // Sessie verlopen — terug naar Firebase login
+      clearFbAuth();
+      ST.screen='firebase-login';render();return null;
     }catch(e){}
   }
-  // Stap 2: nieuwe anonieme gebruiker aanmaken (eerste bezoek)
+  // Geen sessie — toon Firebase login
+  ST.screen='firebase-login';render();
+  return null;
+}
+
+async function doFirebaseLogin(){
+  const email=document.getElementById('fb-email')?.value?.trim();
+  const pwd=document.getElementById('fb-pwd')?.value||'';
+  if(!email||!pwd){ST.fbLoginErr='Vul je e-mail en wachtwoord in.';render();return;}
   try{
-    const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})});
-    if(!r.ok)return null;
+    const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pwd,returnSecureToken:true})});
     const d=await r.json();
+    if(!r.ok){
+      const msgs={'EMAIL_NOT_FOUND':'E-mailadres niet gevonden.','INVALID_PASSWORD':'Onjuist wachtwoord.','USER_DISABLED':'Account is geblokkeerd.','INVALID_LOGIN_CREDENTIALS':'Onjuiste inloggegevens.','TOO_MANY_ATTEMPTS_TRY_LATER':'Te veel pogingen — probeer later opnieuw.'};
+      ST.fbLoginErr=msgs[d.error?.message]||d.error?.message||'Inloggen mislukt';
+      render();return;
+    }
     _authToken=d.idToken;
-    _anonRefreshToken=d.refreshToken;
+    _fbRefreshToken=d.refreshToken;
+    _fbEmail=email;
     _tokenExpiry=Date.now()+(parseInt(d.expiresIn||3600)-120)*1000;
-    saveAnonAuth();
-    return _authToken;
-  }catch(e){return null;}
+    saveFbAuth();
+    ST.fbLoginErr='';
+    showToast('🔄 Gegevens ophalen...',3000);
+    const ok=await pullFromFirebase();
+    if(!ok){showToast('⚠️ Gegevens ophalen mislukt');ST.screen='firebase-login';render();return;}
+    startRealtimeSync();
+    if(AUTH.pid&&gp(AUTH.pid))ST.screen='planning';
+    else ST.screen='login';
+    render();
+  }catch(e){ST.fbLoginErr='Verbinding mislukt.';render();}
+}
+
+function fbSignOut(){
+  clearFbAuth();
+  AUTH={pid:null};saveAuth();
+  ST.screen='firebase-login';ST.fbLoginErr='';
+  render();showToast('👋 Uitgelogd');
 }
 
 async function pullFromFirebase(){
@@ -187,8 +216,30 @@ function render(){document.getElementById('app').innerHTML=buildApp();}
 function buildApp(){
   if(ST.screen==='loading')return`<div class="center-box"><div style="text-align:center;"><div style="font-size:44px;margin-bottom:14px;">⏳</div><div style="color:#64748b;font-size:14px;">Even laden...</div></div></div>`;
   if(ST.screen==='setup')return buildSetup();
+  if(ST.screen==='firebase-login')return buildFirebaseLogin();
   if(ST.screen==='login')return buildLogin();
   return buildPlanning()+(ST.requestModal?buildRequestModal():'');
+}
+
+function buildFirebaseLogin(){
+  return`<div class="center-box"><div class="card">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:52px;margin-bottom:10px;">🔑</div>
+      <h1 style="font-size:22px;font-weight:700;">Inloggen</h1>
+      <p style="font-size:13px;color:#64748b;margin-top:8px;line-height:1.5;">Log in met je bedrijfsaccount<br><span style="font-size:11px;opacity:.7;">bijv. naam@weldingsupport.nl</span></p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">E-mailadres</label>
+        <input id="fb-email" class="inp" type="email" placeholder="naam@weldingsupport.nl" value="${esc(_fbEmail)}" autocomplete="email">
+      </div>
+      <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Wachtwoord</label>
+        <input id="fb-pwd" class="inp" type="password" placeholder="Wachtwoord" autocomplete="current-password" onkeydown="if(event.key==='Enter')doFirebaseLogin()">
+      </div>
+      ${ST.fbLoginErr?`<div style="background:#fee2e2;color:#dc2626;border-radius:8px;padding:10px 12px;font-size:13px;">${esc(ST.fbLoginErr)}</div>`:''}
+      <button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;" onclick="doFirebaseLogin()">Inloggen →</button>
+      <button class="btn btn-s btn-sm" style="width:100%;color:#94a3b8;font-size:11px;" onclick="resetSetup()">⚙️ Verbinding wijzigen</button>
+    </div>
+  </div></div>`;
 }
 
 function buildSetup(){
@@ -254,7 +305,7 @@ function buildPlanning(){
           ${pendingN?`<span style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;">${pendingN}</span>`:''}
         </button>
         <button style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;" onclick="refreshAndShow()" title="Vernieuwen">🔄</button>
-        <button style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;" onclick="logout()">Uitloggen</button>
+        <button style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;" onclick="fbSignOut()">Uitloggen</button>
       </div>
     </div>
 
@@ -575,11 +626,8 @@ function saveSetup(){
   const webApiKey=document.getElementById('s-key')?.value?.trim();
   if(!dbUrl||!webApiKey){showToast('⚠️ Vul beide velden in');return;}
   SYNC={dbUrl,webApiKey,enabled:true};_authToken=null;saveSyncConfig();
-  ST.screen='loading';render();
-  pullFromFirebase().then(ok=>{
-    if(!ok){showToast('❌ Verbinding mislukt. Controleer de URL en Firebase-regels.');SYNC={dbUrl:'',enabled:false};saveSyncConfig();ST.screen='setup';render();}
-    else{showToast('✅ Verbonden!');startRealtimeSync();ST.screen='login';render();}
-  });
+  showToast('✅ Verbonden! Log nu in met je bedrijfsaccount.',3500);
+  ST.screen='firebase-login';render();
 }
 async function doLogin(){
   const pid=parseInt(document.getElementById('l-pid')?.value)||null;
@@ -591,7 +639,7 @@ async function doLogin(){
   AUTH={pid};saveAuth();ST.loginErr='';ST.loginPid=null;ST.screen='planning';render();showToast(`👋 Welkom, ${p.name}!`);
 }
 function logout(){AUTH={pid:null};saveAuth();ST.screen='login';ST.loginErr='';render();}
-function resetSetup(){if(!confirm('Verbinding opnieuw instellen?'))return;if(esConn){esConn.close();esConn=null;}SYNC={dbUrl:'',webApiKey:'',enabled:false};_authToken=null;saveSyncConfig();ST.screen='setup';render();}
+function resetSetup(){if(!confirm('Verbinding opnieuw instellen?'))return;if(esConn){esConn.close();esConn=null;}SYNC={dbUrl:'',webApiKey:'',enabled:false};clearFbAuth();saveSyncConfig();ST.screen='setup';render();}
 function prevMo(){ST.mo===0?(ST.mo=11,ST.yr--):ST.mo--;render();}
 function nextMo(){ST.mo===11?(ST.mo=0,ST.yr++):ST.mo++;render();}
 function goToday(){ST.yr=now.getFullYear();ST.mo=now.getMonth();render();}
@@ -604,18 +652,26 @@ async function refreshAndShow(){
 }
 
 loadSyncConfig();
-loadAnonAuth();
+loadFbAuth();
 loadLocal();
 loadAuth();
 if(SYNC.enabled){
   ST.screen='loading';render();
-  pullFromFirebase().then(ok=>{
-    if(!ok)showToast('⚠️ Offline — lokale data wordt getoond');
-    if(AUTH.pid&&gp(AUTH.pid)){ST.screen='planning';}
-    else{AUTH={pid:null};saveAuth();ST.screen='login';}
-    startRealtimeSync();
-    render();
-  });
+  if(_fbRefreshToken){
+    // Bekende sessie — probeer token te vernieuwen en data op te halen
+    getAuthToken().then(token=>{
+      if(!token)return; // getAuthToken zet screen al op firebase-login
+      pullFromFirebase().then(ok=>{
+        if(!ok)showToast('⚠️ Offline — lokale data wordt getoond');
+        if(AUTH.pid&&gp(AUTH.pid))ST.screen='planning';
+        else{AUTH={pid:null};saveAuth();ST.screen='login';}
+        startRealtimeSync();render();
+      });
+    });
+  }else{
+    // Geen bekende sessie — toon Firebase login
+    ST.screen='firebase-login';render();
+  }
 }else{
   ST.screen='setup';render();
 }
