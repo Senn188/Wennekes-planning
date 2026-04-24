@@ -157,9 +157,9 @@ function deadlineStatus(ds){
 let S={
   tab:'planning',yr:now.getFullYear(),mo:now.getMonth(),
   persons:[
-    {id:1,name:'Persoon 1',hrs:8,wd:[1,2,3,4,5],pwd:''},
-    {id:2,name:'Persoon 2',hrs:8,wd:[1,2,3,4,5],pwd:''},
-    {id:3,name:'Persoon 3',hrs:8,wd:[1,2,3,4,5],pwd:''},
+    {id:1,name:'Persoon 1',hrs:8,wd:[1,2,3,4,5],pwd:'',email:''},
+    {id:2,name:'Persoon 2',hrs:8,wd:[1,2,3,4,5],pwd:'',email:''},
+    {id:3,name:'Persoon 3',hrs:8,wd:[1,2,3,4,5],pwd:'',email:''},
   ],
   wns:[
     {id:1,label:'WN-001',needed:80,color:COLORS[0],desc:'',imgs:[],pdfUrls:[]},
@@ -220,7 +220,7 @@ function loadLocal(){
 function saveSyncConfig(){try{localStorage.setItem(LS_SYNC,JSON.stringify({dbUrl:SYNC.dbUrl,webApiKey:SYNC.webApiKey,cloudName:SYNC.cloudName||'',uploadPreset:SYNC.uploadPreset||'',enabled:SYNC.enabled}));}catch(e){}}
 function loadSyncConfig(){try{const raw=localStorage.getItem(LS_SYNC);if(raw){const p=JSON.parse(raw);if(p.dbUrl)SYNC={dbUrl:p.dbUrl,webApiKey:p.webApiKey||'',cloudName:p.cloudName||'',uploadPreset:p.uploadPreset||'',enabled:!!p.enabled};}}catch(e){}}
 function applyData(d){
-  if(d.persons)S.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||''}));
+  if(d.persons)S.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||'',email:p.email||''}));
   if(d.wns)S.wns=d.wns.map(w=>({...w,desc:w.desc||'',imgs:w.imgs||[],pdfUrls:w.pdfUrls||[]}));
   if(d.asgn)S.asgn=d.asgn;
   if(d.leave)S.leave=d.leave; else if(!S.leave)S.leave={};
@@ -622,6 +622,11 @@ function bInstPersonen(){
           <span style="font-size:10px;color:#64748b;margin-right:2px;">Werkdagen:</span>
           ${DOW_ORDER.map(dow=>`<button class="wd-btn ${wd.includes(dow)?'on':''}" onclick="toggleWd(${p.id},${dow})">${DNMS[dow]}</button>`).join('')}
           <span style="font-size:10px;color:#94a3b8;margin-left:4px;">${wd.length*p.hrs}u/week</span>
+        </div>
+        <div class="prow2" style="margin-top:6px;">
+          <span style="font-size:10px;color:#64748b;margin-right:4px;">📧</span>
+          <input class="inp-sm" type="email" placeholder="naam@weldingsupport.nl" style="flex:1;max-width:220px;" value="${esc(p.email||'')}" onchange="upP(${p.id},'email',this.value.trim().toLowerCase())" title="Firebase-emailadres — koppelt automatisch na inloggen">
+          ${p.email?`<span style="font-size:10px;color:#15803d;white-space:nowrap;">✓ Gekoppeld</span>`:`<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">Niet gekoppeld</span>`}
         </div>
         <div class="prow2" style="margin-top:6px;">
           <span style="font-size:10px;color:#64748b;margin-right:4px;">🔑</span>

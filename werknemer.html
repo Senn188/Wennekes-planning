@@ -79,7 +79,7 @@ function saveSyncConfig(){try{localStorage.setItem(LS_SYNC,JSON.stringify({dbUrl
 function loadSyncConfig(){try{const r=localStorage.getItem(LS_SYNC);if(r){const p=JSON.parse(r);if(p.dbUrl)SYNC={dbUrl:p.dbUrl,webApiKey:p.webApiKey||'',enabled:!!p.enabled};}}catch(e){}}
 function loadLocal(){try{const r=localStorage.getItem(LS_DATA);if(r){applyData(JSON.parse(r));return true;}return false;}catch(e){return false;}}
 function applyData(d){
-  if(d.persons)DATA.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||''}));
+  if(d.persons)DATA.persons=d.persons.map(p=>({...p,wd:p.wd||[1,2,3,4,5],pwd:p.pwd||'',email:p.email||''}));
   if(d.wns)DATA.wns=d.wns.map(w=>({...w,desc:w.desc||'',imgs:w.imgs||[],pdfUrls:w.pdfUrls||[]}));
   if(d.asgn)DATA.asgn=d.asgn;
   if(d.leave)DATA.leave=d.leave; else if(!DATA.leave)DATA.leave={};
@@ -140,8 +140,11 @@ async function doFirebaseLogin(){
     const ok=await pullFromFirebase();
     if(!ok){showToast('⚠️ Gegevens ophalen mislukt');ST.screen='firebase-login';render();return;}
     startRealtimeSync();
-    if(AUTH.pid&&gp(AUTH.pid))ST.screen='planning';
-    else ST.screen='login';
+    // Auto-login: zoek persoon op gekoppeld e-mailadres
+    const matched=DATA.persons.find(p=>p.email&&p.email.toLowerCase()===email.toLowerCase());
+    if(matched){AUTH={pid:matched.id};saveAuth();ST.screen='planning';showToast(`👋 Welkom, ${matched.name}!`);}
+    else if(AUTH.pid&&gp(AUTH.pid)){ST.screen='planning';}
+    else{ST.screen='login';}
     render();
   }catch(e){ST.fbLoginErr='Verbinding mislukt.';render();}
 }
@@ -663,7 +666,10 @@ if(SYNC.enabled){
       if(!token)return; // getAuthToken zet screen al op firebase-login
       pullFromFirebase().then(ok=>{
         if(!ok)showToast('⚠️ Offline — lokale data wordt getoond');
-        if(AUTH.pid&&gp(AUTH.pid))ST.screen='planning';
+        // Auto-login op basis van gekoppeld e-mailadres
+        const matched=_fbEmail?DATA.persons.find(p=>p.email&&p.email.toLowerCase()===_fbEmail.toLowerCase()):null;
+        if(matched){AUTH={pid:matched.id};saveAuth();ST.screen='planning';}
+        else if(AUTH.pid&&gp(AUTH.pid)){ST.screen='planning';}
         else{AUTH={pid:null};saveAuth();ST.screen='login';}
         startRealtimeSync();render();
       });
