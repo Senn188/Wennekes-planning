@@ -37,9 +37,14 @@ const TSTR=fd(now.getFullYear(),now.getMonth(),now.getDate());
 const LS_SYNC='cap_plan_sync_v2';
 const LS_DATA='cap_plan_data_v2';
 const LS_AUTH='cap_plan_auth_v1';
+const LS_ANON='cap_plan_anon_v1'; // Persistente anonieme Firebase-gebruiker
 
 let SYNC={dbUrl:'',webApiKey:'',enabled:false};
 let _authToken=null,_tokenExpiry=0;
+let _anonRefreshToken=null;
+
+function loadAnonAuth(){try{const r=localStorage.getItem(LS_ANON);if(r)_anonRefreshToken=JSON.parse(r).refreshToken||null;}catch(e){}}
+function saveAnonAuth(){try{localStorage.setItem(LS_ANON,JSON.stringify({refreshToken:_anonRefreshToken}));}catch(e){}}
 let DATA={persons:[],wns:[],asgn:{},leave:{},actual:{},requests:{},leaveNotes:{}};
 let AUTH={pid:null};
 let ST={screen:'loading',yr:now.getFullYear(),mo:now.getMonth(),detail:null,loginPid:null,loginErr:'',requestModal:null,reqTab:'nieuw'};
@@ -90,12 +95,31 @@ const WORKER_PATHS=['persons','wns','asgn','leave','leaveNotes','actual','reques
 async function getAuthToken(){
   if(_authToken&&Date.now()<_tokenExpiry)return _authToken;
   if(!SYNC.webApiKey)return null;
+  // Stap 1: bestaande anonieme gebruiker hergebruiken via refresh token
+  if(_anonRefreshToken){
+    try{
+      const r=await fetch(`https://securetoken.googleapis.com/v1/token?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:_anonRefreshToken})});
+      if(r.ok){
+        const d=await r.json();
+        _authToken=d.id_token;
+        _anonRefreshToken=d.refresh_token;
+        _tokenExpiry=Date.now()+(parseInt(d.expires_in||3600)-120)*1000;
+        saveAnonAuth();
+        return _authToken;
+      }
+      // Refresh token ongeldig — maak nieuwe anonieme gebruiker
+      _anonRefreshToken=null;
+    }catch(e){}
+  }
+  // Stap 2: nieuwe anonieme gebruiker aanmaken (eerste bezoek)
   try{
     const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${SYNC.webApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})});
     if(!r.ok)return null;
     const d=await r.json();
     _authToken=d.idToken;
+    _anonRefreshToken=d.refreshToken;
     _tokenExpiry=Date.now()+(parseInt(d.expiresIn||3600)-120)*1000;
+    saveAnonAuth();
     return _authToken;
   }catch(e){return null;}
 }
@@ -580,6 +604,7 @@ async function refreshAndShow(){
 }
 
 loadSyncConfig();
+loadAnonAuth();
 loadLocal();
 loadAuth();
 if(SYNC.enabled){
